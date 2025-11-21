@@ -31,11 +31,11 @@
     },
     "autoload": {
         "files": [
-            "miniorange-magento-2fa/registration.php",
+            "TwoFA/registration.php",
             "TwoFAHyvaUI/registration.php"
         ],
         "psr-4": {
-            "MiniOrange\\TwoFA\\": "miniorange-magento-2fa",
+            "MiniOrange\\TwoFA\\": "TwoFA",
             "MiniOrange\\TwoFAHyvaUI\\": "TwoFAHyvaUI"
         }
     },
