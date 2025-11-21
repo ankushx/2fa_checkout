@@ -1,0 +1,1319 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<style>
+    /* Collapsible Content Animation */
+    .collapsible-content {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: max-height 0.5s ease, opacity 0.5s ease, transform 0.5s ease;
+        transform: translateY(-10px);
+    }
+
+    .collapsible-content.open {
+        max-height: 100%; /* Adjust this height based on content */
+        opacity: 1;
+        transition: max-height 0.5s ease, opacity 0.5s ease, transform 0.5s ease;
+        transform: translateY(0);
+    }
+
+    button {
+        background-color: #eb5202;
+        border: none;
+
+    }
+
+    .justify-between {
+        justify-content: space-between;
+    }
+
+    .items-end {
+        align-items: flex-end;
+    }
+
+    .flex-wrap {
+        flex-wrap: wrap;
+    }
+
+    .flex {
+        display: flex;
+    }
+
+    button:hover {
+        background-color: #ba4000;
+        border-color: #b84002;
+
+        color: #ffffff;
+    }
+</style>
+
+<?php
+$formKey = $this->getBlockHtml('formkey');
+$custom_hostname = $this->get_custom_hostname();
+$custom_post = $this->get_custom_port();
+$custom_protocol = $this->get_custom_protocol();
+$custom_authentication = $this->get_custom_authentication();
+$custom_username = $this->get_custom_username();
+$custom_password = $this->get_custom_password();
+$custom_sendfrom = $this->get_custom_sendFrom();
+$emailConfiguration_from = $this->get_emailConfiguration_from();
+$emailConfiguration_name = $this->get_emailConfiguration_name();
+
+$email_is_enabled = $this->isEmailGatewayEnabled();
+
+$get_whatsapp_teplate_name = $this->get_whatsapp_temlate_name();
+$get_whatsapp_teplate_language = $this->get_whatsapp_temlate_language();
+$get_whatsapp_phoneid = $this->get_whatsapp_phoneid();
+$get_whatsapp_access_token = $this->get_whatsapp_access_token();
+
+$whatsapp_is_enabled = $this->isWhatsApp_GatewayEnabled();
+$sms_is_enabled = $this->isSMS_GatewayEnabled();
+
+
+$custom_sendto = $this->get_custom_sendTo();
+$custom_gateway_sms_provider = $this->get_customgateway_provider();
+$twilio_sid = $this->get_twilio_sid();
+$twilio_token = $this->get_twilio_token();
+$twilio_number = $this->get_twilio_number();
+$test_phone_number = $this->get_test_phone_no();
+
+$gatewayConfiguration_otplength = $this->get_gatewayConfiguration_otplength();
+$smsConfiguration_message = $this->get_smsConfiguration_message();
+$getMethod_URL = $this->get_getMethod_url();
+$postMethod_URL = $this->get_postMethod_url();
+$enable_email_customgateway = $this->get_enable_email_customgateway() ? 'checked' : '';
+$enable_sms_customgateway = $this->get_enable_sms_customgateway() ? 'checked' : '';
+$enable_whatsapp_customgateway = $this->enable_whatsapp_customgateway() ? 'checked' : '';
+$customAttribute = (array)$this->getCustomMapping();
+$customs = $customAttribute;
+$postMethod_phone_attr = $this->get_postMethod_phoneAttr();
+$postMethod_message_attr = $this->get_postMethod_messageAttr();
+$postMethod_dynamic_attr = $this->get_postMethod_dynamicAttr();
+$dynamicAttributes = $this->get_postMethod_dynamicAttr() ? json_decode($this->get_postMethod_dynamicAttr(), true) : [];
+
+$create_account_first = ($this->checkaccountVerified()) ? '' : 'disabled';
+$email_templates = $this->getemailtemplatelist();
+$selected_email_template_id = $this->getselectedemailtemplateid();
+
+$create_account_first = ($this->checkaccountVerified()) ? '' : 'disabled';
+$pricing = $this->getExtensionPageUrl('upgrade');
+
+$account = $this->getExtensionPageUrl('account');
+$is_enterpriseplan_active = $this->check2fa_backend_plan() ? '' : 'disabled';
+
+$currentAdminRole = $this->getCurrentAdminUser()->getRole()->getRoleName();
+$ifSandboxTrialEnabled = $this->ifSandboxTrialEnabled() && $currentAdminRole =='TWOFA' ? true : false;
+
+$isEnabled = $this->isEnabled();
+$disabled = !$isEnabled || $ifSandboxTrialEnabled ? "disabled" : "";
+
+if ($this->isTrialExpired()) {
+    $disabled = "disabled";
+}
+
+if ($this->isTrialExpired()) {
+    $disabled = "disabled";
+}
+
+?>
+<script>
+    // Toggle functionality for collapsible sections
+    document.addEventListener("DOMContentLoaded", function () {
+        const toggles = document.querySelectorAll(".configuration-toggle");
+        toggles.forEach((toggle) => {
+            toggle.addEventListener("click", function () {
+                const content = this.nextElementSibling;
+                const icon = this.querySelector(".toggle-icon");
+
+                if (content.classList.contains("open")) {
+                    content.classList.remove("open");
+                    icon.classList.remove("rotate-180");
+                } else {
+                    content.classList.add("open");
+                    icon.classList.add("rotate-180");
+                }
+            });
+        });
+
+        // Toggle email configuration visibility
+        const emailToggle = document.getElementById("enable_customgateway_forEmail");
+        const emailDiv = document.getElementById("showHideEmaildiv");
+        if (emailToggle) {
+            emailToggle.addEventListener("change", function () {
+                if (this.checked) {
+                    emailDiv.style.display = "block";
+                } else {
+                    emailDiv.style.display = "none";
+                }
+            });
+        }
+    });
+</script>
+
+<div class="p-6" style="width: 70%;">
+
+    <?php if ($create_account_first == 'disabled') { ?>
+        <div class="error-msg" style="margin-bottom: 2rem;margin-top:2rem">
+            Please register and verify your account before trying to configure your settings. Go the <a
+                href="<?= $account ?> " style="font-weight:bold">Account</a> Section to complete your registration.
+        </div> <?php } ?>
+    <div class="bg-white rounded-lg shadow p-3 w-full">
+        <div class="bg-white-50 rounded-lg p-6">
+            <h1 class="text-3xl font-bold mb-6 text-gray-900" style="font-size: 2.5rem;">Custom Gateway
+                Configuration</h1>
+            <?php if ($disabled == 'disabled') { ?>  <span class="enterprise_feature"> <span
+                    style="color:red;margin-left:10%"> *</span> <span style="color:black; font-weight:normal"> (Available in the <a
+                        href="<?php print_r($pricing); ?>"
+                        class="premium btn-link">2fa-frontend/backend</a> version)</span></span></span>
+            <?php } ?>
+            <p class="text-gray-600 mb-8" style="font-size: 1.7rem; padding-top:0.1rem;">
+                Configure your communication gateways for two-factor authentication.
+            </p>
+        </div>
+
+        <!-- Configuration Sections -->
+        <div class="p-8">
+            <!-- Email Gateway Configuration -->
+            <div class="mb-8 border rounded-lg">
+                <div class="flex justify-between items-center bg-gray-100 p-7 cursor-pointer configuration-toggle">
+                    <div class="flex items-center" style="font-size: 1.7rem;">
+                        <i class="fas fa-envelope text-black-600 mr-3"></i>
+                        <h2 class="font-semibold text-gray-700">Email Gateway Configuration</h2>
+                        <?php if ($email_is_enabled): ?>
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full">Enabled</span>
+                        <?php else: ?>
+                            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full">Disabled</span>
+                        <?php endif; ?>
+                    </div>
+                    <div>
+                        <i class="fas fa-chevron-down transition-transform duration-300 toggle-icon"></i>
+                    </div>
+                </div>
+
+                <!-- Collapsible Content -->
+                <div class="collapsible-content bg-white shadow-lg rounded-lg">
+                    <div class="container p-6">
+
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
+                            <div class="flex items-center space-x-4"></div>
+
+                            <!-- Email Configuration Form -->
+                            <div id="showHideEmaildiv" class="space-y-6" style="">
+                                <form id="customGateway_email" method="post" action="">
+                                    <?php print_r($formKey); ?>
+                                    <input type="hidden" name="option" value="customGateway">
+                                    <input type="hidden" name="enable_Emailcustomgateway"
+                                           value="enable_Emailcustomgateway">
+
+
+                                    <div class="space-y-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div class="flex flex-col justify-end">
+                                            <label class="text-gray-700 font-medium" for="hostname">Hostname <span
+                                                    class="text-red-500">*</span></label>
+                                            <input
+                                                type="text" <?php print_r($disabled); ?>
+                                                id="hostname"
+                                                name="custom_gateway_hostname"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                placeholder="Host name or IP address of SMTP Server"
+                                                required
+                                                value="<?php print_r($custom_hostname); ?>"
+                                            >
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="port">Port <span
+                                                    class="text-red-500">*</span></label>
+                                            <input
+                                                type="text" <?php print_r($disabled); ?>
+                                                id="port"
+                                                name="custom_gateway_port"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                placeholder="Port number for SMTP Server"
+                                                value="<?php print_r($custom_post); ?>"
+                                                required
+                                            >
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="username">Username <span
+                                                    class="text-red-500">*</span></label>
+                                            <input
+                                                type="text" <?php print_r($disabled); ?>
+                                                id="username"
+                                                name="custom_gateway_username"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                placeholder="Enter username for SMTP Server"
+                                                value="<?php print_r($custom_username); ?>"
+                                                required
+                                            >
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="password">Password <span
+                                                    class="text-red-500">*</span></label>
+                                            <input
+                                                type="password" <?php print_r($disabled); ?>
+                                                id="password"
+                                                name="custom_gateway_password"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                placeholder="Enter password"
+                                                value="<?php print_r($custom_password); ?>"
+                                                required
+                                            >
+                                        </div>
+
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium"
+                                                   for="custom_gateway_authentication">Authentication</label>
+                                            <select
+                                                id="custom_gateway_authentication" <?php print_r($disabled); ?>
+                                                name="custom_gateway_authentication"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                            >
+                                                <option
+                                                    value="smtp" <?php if ($custom_authentication == 'smtp') { ?> selected <?php } ?> >
+                                                    None
+                                                </option>
+                                                <option
+                                                    value="plain" <?php if ($custom_authentication == 'plain') { ?> selected <?php } ?> >
+                                                    PLAIN
+                                                </option>
+                                                <option
+                                                    value="login" <?php if ($custom_authentication == 'login') { ?> selected <?php } ?> >
+                                                    LOGIN
+                                                </option>
+                                                <option
+                                                    value="crammd5" <?php if ($custom_authentication == 'crammd5') { ?> selected <?php } ?> >
+                                                    CRAM-MD5
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="custom_gateway_protocol">Protocol</label>
+                                            <select
+                                                id="custom_gateway_protocol" <?php print_r($disabled); ?>
+                                                name="custom_gateway_protocol"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                            >
+                                                <option
+                                                    value="" <?php if ($custom_protocol == '') { ?> selected <?php } ?>>
+                                                    None
+                                                </option>
+                                                <option
+                                                    value="ssl" <?php if ($custom_protocol == 'ssl') { ?> selected <?php } ?> >
+                                                    SSL
+                                                </option>
+                                                <option
+                                                    value="tls" <?php if ($custom_protocol == 'tls') { ?> selected <?php } ?> >
+                                                    TLS
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="sender_email">Sender's
+                                                Email <span class="text-red-500">*</span></label>
+                                            <input
+                                                type="email" <?php print_r($disabled); ?>
+                                                id="sender_email"
+                                                name="customGateway_from_configuration"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                placeholder="Enter sender's email"
+                                                value="<?php print_r($emailConfiguration_from); ?>"
+                                                required
+                                            >
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="sender_name">Sender's Name
+                                                <span class="text-red-500">*</span></label>
+                                            <input
+                                                type="text" <?php print_r($disabled); ?>
+                                                id="sender_name"
+                                                name="customGateway_name_configuration"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                placeholder="Enter sender's name"
+                                                value="<?php print_r($emailConfiguration_name); ?>"
+                                                required
+                                            >
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="otp_length">OTP Length
+                                                <span class="text-red-500">*</span></label>
+                                            <select <?php print_r($disabled); ?>
+                                                name="customGateway_otpLength_configuration"
+                                                id="otp_length"
+                                                class="w-full border rounded-lg p-3 text-gray-700"
+                                            >
+                                                <option
+                                                    value="3" <?php if ($gatewayConfiguration_otplength == '3') { ?> selected <?php } ?>>
+                                                    3
+                                                </option>
+                                                <option
+                                                    value="4" <?php if ($gatewayConfiguration_otplength == '4') { ?> selected <?php } ?>>
+                                                    4
+                                                </option>
+                                                <option
+                                                    value="5" <?php if ($gatewayConfiguration_otplength == '5') { ?> selected <?php } ?>>
+                                                    5
+                                                </option>
+                                                <option
+                                                    value="6" <?php if ($gatewayConfiguration_otplength == '6') { ?> selected <?php } ?>>
+                                                    6
+                                                </option>
+                                                <option
+                                                    value="7" <?php if ($gatewayConfiguration_otplength == '7') { ?> selected <?php } ?>>
+                                                    7
+                                                </option>
+                                                <option
+                                                    value="8" <?php if ($gatewayConfiguration_otplength == '8') { ?> selected <?php } ?>>
+                                                    8
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="flex flex-col">
+                                            <label class="text-gray-700 font-medium" for="email_template">Email
+                                                Templates <span class="text-red-500">*</span></label>
+                                            <?php if ($email_templates != NULL) { ?>
+                                                <select <?php print_r($disabled); ?>
+                                                    name="email_template"
+                                                    id="email_template"
+                                                    class="w-full border rounded-lg p-3 text-gray-700"
+                                                >
+                                                    <?php foreach ($email_templates as $email_template) { ?>
+                                                        <option
+                                                            value="<?php echo $email_template['template_id']; ?>"
+                                                            <?php if ($selected_email_template_id == $email_template['template_id']) { ?> selected <?php } ?>
+                                                        >
+                                                            <?php echo $email_template['template_code']; ?>
+                                                        </option>
+                                                    <?php } ?>
+                                                </select>
+                                            <?php } else { ?>
+                                                <input
+                                                    disabled
+                                                    class="w-full border rounded-lg p-3 text-gray-700"
+                                                    placeholder="Please register email template at Marketing->Email Templates->Add New Templates"
+                                                >
+                                            <?php } ?>
+                                            <p class="mt-2 text-gray-500" style="font-size: 1.3rem;">
+                                                Use {{var otp}} and {{var email}} in your template where you wish to
+                                                place OTP & Email respectively.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex justify-left gap-6 my-8">
+                                        <button
+                                            type="submit" name="customgateway_emailConfiguration"
+                                            class=" text-white py-3 px-6 rounded-lg font-semibold"
+                                            name="email_submit" <?php print_r($disabled); ?>
+                                        >
+                                            Save
+                                        </button>
+                                        <button <?php print_r($disabled); ?>
+                                            type="submit" name="customgateway_emailConfiguration_delete"
+                                            class=" text-white py-3 px-6 rounded-lg font-semibold"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </form>
+
+                                <hr>
+
+                                <form id="customGateway_email_test" method="post" action="">
+                                    <?php print_r($formKey); ?>
+                                    <input type="hidden" name="option" value="customGateway">
+                                    <h2 class="text-gray-700 font-bold text-lg mt-6 mb-4" style="font-size:1.6rem">
+                                        Test Email Configuration</h2>
+                                    <div class="flex flex-wrap items-end justify-between">
+                                        <div style="width:70%">
+                                            <label class="text-gray-700 font-medium" for="test_email_email">Send Email
+                                                To</label>
+                                            <input
+                                                type="text" <?php print_r($disabled); ?>
+                                                id="test_email_email"
+                                                name="custom_gateway_send_to"
+                                                class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                placeholder="Enter Email for testing"
+                                                value="<?php print_r($custom_sendto); ?>"
+                                            >
+                                        </div>
+                                        <div class="mt-4">
+                                            <button
+                                                type="submit" <?php print_r($disabled); ?>
+                                                name="test_email"
+                                                class=" text-white py-3 px-6 rounded-lg font-semibold"
+                                            >
+                                                Send Test Email
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SMS Gateway Configuration -->
+            <div class="mb-8 border rounded-lg">
+                <div class="flex justify-between items-center bg-gray-100 p-7 cursor-pointer configuration-toggle">
+                    <div class="flex items-center" style="font-size: 1.7rem;">
+                        <i class="fas fa-sms text-black-600 mr-3"></i>
+                        <h2 class="font-semibold text-gray-700">SMS Gateway Configuration</h2>
+                        <?php if ($sms_is_enabled): ?>
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full">Enabled</span>
+                        <?php else: ?>
+                            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full">Disabled</span>
+                        <?php endif; ?>
+                    </div>
+                    <i class="fas fa-chevron-down transition-transform duration-300 toggle-icon"></i>
+                </div>
+
+                <!-- Collapsible Content -->
+                <div class="collapsible-content bg-white shadow-lg rounded-lg">
+                    <div class="container p-6">
+                        <!-- Enable Custom Gateway -->
+
+                        <!-- SMS Configuration Form -->
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
+                            <form id="customGateway_sms" method="post" action="">
+                                <?php print_r($formKey); ?>
+                                <input type="hidden" name="option" value="customGateway">
+                                <!-- API Provider Selection -->
+                                <div class="flex flex-col mb-6">
+                                    <label class="text-gray-700 font-medium" for="api_provider">API Provider <span
+                                            class="text-red-500">*</span></label>
+                                    <select id="api_provider" name="custom_gateway_apiProvider_sms"
+                                            class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                            onchange="customGatewayMethod()"
+                                            required>
+                                        <option <?php if ($custom_gateway_sms_provider == 'twilio') { ?> selected <?php } ?>
+                                            value="twilio">Twilio
+                                        </option>
+                                        <option <?php if ($custom_gateway_sms_provider == 'getMethod') { ?> selected <?php } ?>
+                                            value="getMethod">Get Method
+                                        </option>
+                                        <option <?php if ($custom_gateway_sms_provider == 'postMethod') { ?> selected <?php } ?>
+                                            value="postMethod">Post Method
+                                        </option>
+                                    </select>
+                                </div>
+
+
+                                <!-- Method-Specific Configurations -->
+                                <div id="method_configurations" class="grid grid-cols-1 gap-6">
+                                    <!-- Twilio Configuration -->
+                                    <div
+                                        id="twilio_method" <?php if ($custom_gateway_sms_provider == 'twilio') { ?><?php } else { ?> class="hidden" <?php } ?>>
+                                        <div class="grid grid-cols-2 gap-6">
+                                            <div>
+                                                <label class="text-gray-700 font-medium" for="twilio_sid">Twilio SID
+                                                    <span class="text-red-500">*</span></label>
+                                                <input type="text" <?php print_r($disabled); ?> id="twilio_sid"
+                                                       name="custom_gateway_twilio_sid"
+                                                       value="<?php print_r($twilio_sid); ?>"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                       placeholder="Enter Twilio SID"
+                                                       required>
+                                            </div>
+                                            <div>
+                                                <label class="text-gray-700 font-medium" for="twilio_token">Twilio
+                                                    Token <span class="text-red-500">*</span></label>
+                                                <input type="text" <?php print_r($disabled); ?>
+                                                       id="twilio_token" name="custom_gateway_twilio_token"
+                                                       value="<?php print_r($twilio_token); ?>"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                       placeholder="Enter Twilio Token"
+                                                       required>
+                                            </div>
+                                            <div>
+                                                <label class="text-gray-700 font-medium" for="twilio_number">Twilio
+                                                    Number <span class="text-red-500">*</span></label>
+                                                <input type="text" <?php print_r($disabled); ?>
+                                                       id="twilio_number" name="custom_gateway_twilio_ph_number"
+                                                       value="<?php print_r($twilio_number); ?>"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                       placeholder="Enter Twilio Number without + sign"
+                                                       required>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Get Method Configuration -->
+                                    <div
+                                        id="get_method" <?php if ($custom_gateway_sms_provider == 'getMethod') { ?><?php } else { ?> class="hidden" <?php } ?>>
+                                        <div class="grid grid-cols-2 gap-6">
+                                            <div class="col-span-2 mt-1">
+                                                <label class="text-gray-700 font-medium" for="get_url">SMS Gateway
+                                                    URL <span class="text-red-500">*</span></label>
+                                                <input <?php print_r($disabled); ?> type="text" id="get_url"
+                                                                                    name="custom_gateway_getmethodURL"
+                                                                                    value="<?php print_r($getMethod_URL); ?>"
+                                                                                    class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                                                    placeholder="Enter Gateway URL"
+                                                                                    required>
+                                            </div>
+                                            <div class="col-span-2">
+                                                <p class="text-gray-500">
+                                                    <strong class="font-semibold text-gray-800">Add your SMS API
+                                                        CURL URL</strong> and use the <span class="text-blue-500">##phone##</span>
+                                                    and <span class="text-blue-500">##message##</span> variables to
+                                                    pass the values of the mobile number and message fields.
+                                                </p>
+                                                <p class="mt-2 text-gray-500">
+                                                    Example: <code class="bg-gray-100 px-2 py-1 rounded-md"> {SMS
+                                                        API}?parameter1=value1&phone_parameter=##phone##&message_parameter=##message## </code>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+                                    <div
+                                        id="post_method" <?php if ($custom_gateway_sms_provider == 'postMethod') { ?><?php } else { ?> class="hidden" <?php } ?>>
+                                        <div class="grid grid-cols-2 gap-6">
+                                            <!-- Gateway URL -->
+                                            <div class="col-span-2 mt-1">
+                                                <label class="text-gray-700 font-medium" for="post_url">SMS Gateway
+                                                    URL <span class="text-red-500">*</span></label>
+                                                <input type="text" <?php print_r($disabled); ?> id="post_url"
+                                                       name="custom_gateway_postmethodURL"
+                                                       value="<?php print_r($postMethod_URL); ?>"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                       placeholder="Enter Gateway URL"
+                                                       required>
+                                            </div>
+                                        </div>
+                                        <hr class="mt-12">
+                                        <h2 class="my-8"
+                                            style="margin-top:1rem; font-size: 1.5rem; color: #333; display: flex; align-items: center;">
+                                            <!-- Square Button -->
+                                            <span id="add_custom_attr" class="text-white p-2 m-4"
+                                                  style="width: 4rem; height: 4rem;border-radius:3px; display: flex; justify-content: center; align-items: center; background-color: #eb5202; font-size: 1.5rem; font-weight: bold;cursor:pointer">
+                              +
+                            </span>
+                                            <!-- Title Text with spacing -->
+                                            <span class="">Attribute</span>
+                                        </h2>
+
+
+                                        <div id="custom_parameters_section" class="mt-6">
+                                            <!-- Default Attributes -->
+                                            <div class="flex mt-4 items-center">
+                                                <input type="text" value="<?php print_r($postMethod_phone_attr); ?>"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                       name="post_method_phone_attr"
+                                                       placeholder="Attribute name for phone" value=""
+                                                       style="width: 57%;"
+                                                       required>
+                                                <input type="text" value="##phone##"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202] ml-4"
+                                                       style="width: 57%;">
+                                                <button class="remove-key text-white p-2 rounded ml-4 font-semibold"
+                                                        style="width: 5rem;background-color:#eb5202">-
+                                                </button>
+                                            </div>
+                                            <div class="flex mt-4 items-center">
+                                                <input type="text"
+                                                       value="<?php print_r($postMethod_message_attr); ?>"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                       name="post_method_message_attr"
+                                                       placeholder="Attribute name for message" value=""
+                                                       style="width: 57%;"
+                                                       required>
+                                                <input type="text" value="##message##"
+                                                       class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202] ml-4"
+                                                       style="width: 57%;">
+                                                <button class="remove-key text-white p-2 rounded ml-4 font-semibold"
+                                                        style="width: 5rem;background-color:#eb5202">-
+                                                </button>
+                                            </div>
+
+                                            <!-- Dynamic Attributes -->
+                                            <!-- Dynamic Attributes -->
+                                            <div id="dynamic_attributes" class="mt-4">
+                                                <?php if (!empty($dynamicAttributes)) : ?>
+                                                    <?php foreach ($dynamicAttributes as $index => $attribute) : ?>
+                                                        <div class="flex mt-4 items-center attribute-row"
+                                                             data-index="<?= $index ?>">
+                                                            <input type="text"
+                                                                   name="dynamic_attributes[<?= $index ?>][name]"
+                                                                   value="<?= htmlspecialchars($attribute['name']) ?>"
+                                                                   class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                                                   placeholder="Enter Parameter"
+                                                                   style="width: 57%;"
+                                                                   required>
+                                                            <input type="text"
+                                                                   name="dynamic_attributes[<?= $index ?>][value]"
+                                                                   value="<?= htmlspecialchars($attribute['value']) ?>"
+                                                                   class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202] ml-4"
+                                                                   placeholder="Enter Value" style="width: 57%;"
+                                                                   required>
+                                                            <button type="button"
+                                                                    class="text-white p-2 rounded ml-4 font-semibold"
+                                                                    style="width: 5rem; background-color: #eb5202;">
+                                                                -
+                                                            </button>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                <?php endif; ?>
+                                            </div>
+
+
+                                        </div>
+
+
+                                    </div>
+                                </div>
+
+                                <div class="col-span-2">
+                                    <label class="text-gray-700 font-medium" for="sms_otp_length">OTP Length <span class="text-red-500">*</span></label>
+                                    <select name="customGateway_otpLength_configuration"
+                                            id="sms_otp_length"
+                                            class="w-full border rounded-lg p-3 text-gray-700"
+                                            <?php print_r($disabled); ?>
+                                            required>
+                                        <option value="3" <?php if ($gatewayConfiguration_otplength == '3') { ?> selected <?php } ?>>3</option>
+                                        <option value="4" <?php if ($gatewayConfiguration_otplength == '4') { ?> selected <?php } ?>>4</option>
+                                        <option value="5" <?php if ($gatewayConfiguration_otplength == '5') { ?> selected <?php } ?>>5</option>
+                                        <option value="6" <?php if ($gatewayConfiguration_otplength == '6') { ?> selected <?php } ?>>6</option>
+                                        <option value="7" <?php if ($gatewayConfiguration_otplength == '7') { ?> selected <?php } ?>>7</option>
+                                        <option value="8" <?php if ($gatewayConfiguration_otplength == '8') { ?> selected <?php } ?>>8</option>
+                                    </select>
+                                </div>
+
+                                <!-- SMS Messages field -->
+                                <div class="col-span-2">
+                                    <label class="text-gray-700 font-medium"
+                                               for="customGateway_message_SMSconfiguration">SMS Messages <span
+                                                class="text-red-500">*</span></label>
+                                    <input type="text" id="customGateway_message_SMSconfiguration"
+                                           name="customGateway_message_SMSconfiguration"
+                                           value="<?php print_r($smsConfiguration_message); ?>"
+                                           class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                           placeholder="Example: Dear Customer, Your one time passcode is ##OTP##."
+                                           <?php print_r($disabled); ?>
+                                           required>
+                                    <p class="mt-2 text-gray-700">
+                                        You need to write <span class="text-blue-500">##OTP##</span> where you
+                                        wish to place the generated OTP in this template.
+                                    </p>
+                                </div>
+
+
+                                    <!-- Save and Delete Buttons -->
+                                    <div class="flex justify-left gap-6 my-8">
+                                        <button type="submit" <?php print_r($disabled); ?> name="sms_submit"
+                                                class="text-white py-3 px-6 rounded-lg font-semibold">Save
+                                        </button>
+                                        <button type="submit" <?php print_r($disabled); ?>
+                                                name="sms_submit_delete"
+                                                class="text-white py-3 px-6 rounded-lg font-semibold">Delete
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </form>
+
+
+                            <!-- Test SMS -->
+                            <hr class="my-6">
+                            <form id="customGateway_sms_test" method="post" action="">
+                                <?php print_r($formKey); ?>
+                                <input type="hidden" name="option" value="customGateway">
+                                <h2 class="text-gray-700 font-bold text-lg mt-6 mb-4" style="font-size:1.6rem">Test
+                                    SMS Configuration</h2>
+                                <div class="flex flex-wrap items-end justify-between">
+                                    <div style="width:70%">
+                                        <label class="text-gray-700 font-medium" for="test_email_sms">Send SMS
+                                            To</label>
+                                        <input type="text" id="test_email_sms" name="custom_gateway_test_mobileNumber"
+                                               value="<?php print_r($test_phone_number); ?>"
+                                               class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                               <?php print_r($disabled); ?>
+                                               placeholder="Enter number for testing with '+' sign and Country code.">
+                                    </div>
+                                    <div class="mt-4">
+                                        <button type="submit" <?php print_r($disabled); ?> name="test_sms"
+                                                class="font-semibold text-white py-3 px-6 rounded-lg font-semibold">
+                                            Send Test SMS
+                                        </button>
+                                    </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        <!-- WhatsApp Gateway Configuration -->
+        <div class="mb-8 border rounded-lg">
+            <div class="flex justify-between items-center bg-gray-100 p-7 cursor-pointer configuration-toggle">
+                <div class="flex items-center" style="font-size: 1.7rem;">
+                    <i class="fab fa-whatsapp text-black-600 mr-3"></i>
+                    <h2 class="font-semibold text-gray-700">WhatsApp Gateway Configuration</h2>
+                    <?php if ($whatsapp_is_enabled): ?>
+                        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full">Enabled</span>
+                    <?php else: ?>
+                        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full">Disabled</span>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <i class="fas fa-chevron-down transition-transform duration-300 toggle-icon"></i>
+                </div>
+            </div>
+
+            <!-- Collapsible Content -->
+            <div class="collapsible-content bg-white shadow-lg rounded-lg">
+                <div class="container p-6">
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div class="flex items-center space-x-4 mb-6"></div>
+                        <form id="customGateway_whatsapp" method="post" action="">
+                            <?php print_r($formKey); ?>
+                            <input type="hidden" name="option" value="customGateway">
+                            <input type="hidden" name="enable_whatsapp" value="true">
+
+                            <div class="grid md:grid-cols-2 gap-6" style="font-size: 1.4rem;">
+                                <div>
+                                    <label class="text-gray-700 font-medium">Phone Number ID<span
+                                            style="color:red;">*</span>:</label>
+                                    <input <?php print_r($disabled); ?> type="text" name="phone_number_id"
+                                                                        placeholder="Enter your phone number ID"
+                                                                        value="<?php echo $get_whatsapp_phoneid; ?>"
+                                                                        required
+                                                                        class="w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-[#eb5202] focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-gray-700 font-medium">Template Name<span
+                                            style="color:red;">*</span>:</label>
+                                    <input <?php print_r($disabled); ?> type="text" name="template_name"
+                                                                        placeholder="Enter the template"
+                                                                        value="<?php echo $get_whatsapp_teplate_name; ?>"
+                                                                        required
+                                                                        class="w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-[#eb5202] focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-gray-700 font-medium">Access Token<span
+                                            style="color:red;">*</span>:</label>
+                                    <input <?php print_r($disabled); ?> type="text" name="access_token"
+                                                                        placeholder="Enter your access token"
+                                                                        value="<?php echo $get_whatsapp_access_token; ?>"
+                                                                        required
+                                                                        class="w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-[#eb5202] focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-gray-700 font-medium">Template Language<span
+                                            style="color:red;">*</span>:</label>
+                                    <select name="template_language" required
+                                            class="w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-[#eb5202] focus:outline-none" <?php print_r($disabled); ?>>
+                                        <!-- Add other languages as necessary -->
+                                        <option
+                                            value="af" <?php if ($get_whatsapp_teplate_language == 'af') { ?> selected <?php } ?>>
+                                            Afrikaans
+                                        </option>
+                                        <option
+                                            value="sq" <?php if ($get_whatsapp_teplate_language == 'sq') { ?> selected <?php } ?>>
+                                            Albanian
+                                        </option>
+                                        <option
+                                            value="ar" <?php if ($get_whatsapp_teplate_language == 'ar') { ?> selected <?php } ?>>
+                                            Arabic
+                                        </option>
+                                        <option
+                                            value="az" <?php if ($get_whatsapp_teplate_language == 'az') { ?> selected <?php } ?>>
+                                            Azerbaijani
+                                        </option>
+                                        <option
+                                            value="bn" <?php if ($get_whatsapp_teplate_language == 'bn') { ?> selected <?php } ?>>
+                                            Bengali
+                                        </option>
+                                        <option
+                                            value="bg" <?php if ($get_whatsapp_teplate_language == 'bg') { ?> selected <?php } ?>>
+                                            Bulgarian
+                                        </option>
+                                        <option
+                                            value="ca" <?php if ($get_whatsapp_teplate_language == 'ca') { ?> selected <?php } ?>>
+                                            Catalan
+                                        </option>
+                                        <option
+                                            value="zh_CN" <?php if ($get_whatsapp_teplate_language == 'zh_CN') { ?> selected <?php } ?>>
+                                            Chinese (CHN)
+                                        </option>
+                                        <option
+                                            value="zh_HK" <?php if ($get_whatsapp_teplate_language == 'zh_HK') { ?> selected <?php } ?>>
+                                            Chinese (HKG)
+                                        </option>
+                                        <option
+                                            value="zh_TW" <?php if ($get_whatsapp_teplate_language == 'zh_TW') { ?> selected <?php } ?>>
+                                            Chinese (TAI)
+                                        </option>
+                                        <option
+                                            value="hr" <?php if ($get_whatsapp_teplate_language == 'hr') { ?> selected <?php } ?>>
+                                            Croatian
+                                        </option>
+                                        <option
+                                            value="cs" <?php if ($get_whatsapp_teplate_language == 'cs') { ?> selected <?php } ?>>
+                                            Czech
+                                        </option>
+                                        <option
+                                            value="da" <?php if ($get_whatsapp_teplate_language == 'da') { ?> selected <?php } ?>>
+                                            Danish
+                                        </option>
+                                        <option
+                                            value="nl" <?php if ($get_whatsapp_teplate_language == 'nl') { ?> selected <?php } ?>>
+                                            Dutch
+                                        </option>
+                                        <option
+                                            value="en" <?php if ($get_whatsapp_teplate_language == 'en') { ?> selected <?php } ?>>
+                                            English
+                                        </option>
+                                        <option
+                                            value="en_GB" <?php if ($get_whatsapp_teplate_language == 'en_GB') { ?> selected <?php } ?>>
+                                            English (UK)
+                                        </option>
+                                        <option value="en_US"
+                                                default <?php if ($get_whatsapp_teplate_language == 'en_US') { ?> selected <?php } ?>>
+                                            English (US)
+                                        </option>
+                                        <option
+                                            value="et" <?php if ($get_whatsapp_teplate_language == 'et') { ?> selected <?php } ?>>
+                                            Estonian
+                                        </option>
+                                        <option
+                                            value="fil" <?php if ($get_whatsapp_teplate_language == 'fil') { ?> selected <?php } ?>>
+                                            Filipino
+                                        </option>
+                                        <option
+                                            value="fi" <?php if ($get_whatsapp_teplate_language == 'fi') { ?> selected <?php } ?>>
+                                            Finnish
+                                        </option>
+                                        <option
+                                            value="fr" <?php if ($get_whatsapp_teplate_language == 'fr') { ?> selected <?php } ?>>
+                                            French
+                                        </option>
+                                        <option
+                                            value="ka" <?php if ($get_whatsapp_teplate_language == 'ka') { ?> selected <?php } ?>>
+                                            Georgian
+                                        </option>
+                                        <option
+                                            value="de" <?php if ($get_whatsapp_teplate_language == 'de') { ?> selected <?php } ?>>
+                                            German
+                                        </option>
+                                        <option
+                                            value="el" <?php if ($get_whatsapp_teplate_language == 'el') { ?> selected <?php } ?>>
+                                            Greek
+                                        </option>
+                                        <option
+                                            value="gu" <?php if ($get_whatsapp_teplate_language == 'gu') { ?> selected <?php } ?>>
+                                            Gujarati
+                                        </option>
+                                        <option
+                                            value="ha" <?php if ($get_whatsapp_teplate_language == 'ha') { ?> selected <?php } ?>>
+                                            Hausa
+                                        </option>
+                                        <option
+                                            value="he" <?php if ($get_whatsapp_teplate_language == 'he') { ?> selected <?php } ?>>
+                                            Hebrew
+                                        </option>
+                                        <option
+                                            value="hi" <?php if ($get_whatsapp_teplate_language == 'hi') { ?> selected <?php } ?>>
+                                            Hindi
+                                        </option>
+                                        <option
+                                            value="hu" <?php if ($get_whatsapp_teplate_language == 'hu') { ?> selected <?php } ?>>
+                                            Hungarian
+                                        </option>
+                                        <option
+                                            value="id" <?php if ($get_whatsapp_teplate_language == 'id') { ?> selected <?php } ?>>
+                                            Indonesian
+                                        </option>
+                                        <option
+                                            value="ga" <?php if ($get_whatsapp_teplate_language == 'ga') { ?> selected <?php } ?>>
+                                            Irish
+                                        </option>
+                                        <option
+                                            value="it" <?php if ($get_whatsapp_teplate_language == 'it') { ?> selected <?php } ?>>
+                                            Italian
+                                        </option>
+                                        <option
+                                            value="ja" <?php if ($get_whatsapp_teplate_language == 'ja') { ?> selected <?php } ?>>
+                                            Japanese
+                                        </option>
+                                        <option
+                                            value="kn" <?php if ($get_whatsapp_teplate_language == 'kn') { ?> selected <?php } ?>>
+                                            Kannada
+                                        </option>
+                                        <option
+                                            value="kk" <?php if ($get_whatsapp_teplate_language == 'kk') { ?> selected <?php } ?>>
+                                            Kazakh
+                                        </option>
+                                        <option
+                                            value="rw_RW" <?php if ($get_whatsapp_teplate_language == 'rw_RW') { ?> selected <?php } ?>>
+                                            Kinyarwanda
+                                        </option>
+                                        <option
+                                            value="ko" <?php if ($get_whatsapp_teplate_language == 'ko') { ?> selected <?php } ?>>
+                                            Korean
+                                        </option>
+                                        <option
+                                            value="ky_KG" <?php if ($get_whatsapp_teplate_language == 'ky_KG') { ?> selected <?php } ?>>
+                                            Kyrgyz (Kyrgyzstan)
+                                        </option>
+                                        <option
+                                            value="lo" <?php if ($get_whatsapp_teplate_language == 'lo') { ?> selected <?php } ?>>
+                                            Lao
+                                        </option>
+                                        <option
+                                            value="lv" <?php if ($get_whatsapp_teplate_language == 'lv') { ?> selected <?php } ?>>
+                                            Latvian
+                                        </option>
+                                        <option
+                                            value="lt" <?php if ($get_whatsapp_teplate_language == 'lt') { ?> selected <?php } ?>>
+                                            Lithuanian
+                                        </option>
+                                        <option
+                                            value="mk" <?php if ($get_whatsapp_teplate_language == 'mk') { ?> selected <?php } ?>>
+                                            Macedonian
+                                        </option>
+                                        <option
+                                            value="ms" <?php if ($get_whatsapp_teplate_language == 'ms') { ?> selected <?php } ?>>
+                                            Malay
+                                        </option>
+                                        <option
+                                            value="ml" <?php if ($get_whatsapp_teplate_language == 'ml') { ?> selected <?php } ?>>
+                                            Malayalam
+                                        </option>
+                                        <option
+                                            value="mr" <?php if ($get_whatsapp_teplate_language == 'mr') { ?> selected <?php } ?>>
+                                            Marathi
+                                        </option>
+                                        <option
+                                            value="nb" <?php if ($get_whatsapp_teplate_language == 'nb') { ?> selected <?php } ?>>
+                                            Norwegian
+                                        </option>
+                                        <option
+                                            value="fa" <?php if ($get_whatsapp_teplate_language == 'fa') { ?> selected <?php } ?>>
+                                            Persian
+                                        </option>
+                                        <option
+                                            value="pl" <?php if ($get_whatsapp_teplate_language == 'pl') { ?> selected <?php } ?>>
+                                            Polish
+                                        </option>
+                                        <option
+                                            value="pt_BR" <?php if ($get_whatsapp_teplate_language == 'pt_BR') { ?> selected <?php } ?>>
+                                            Portuguese (BR)
+                                        </option>
+                                        <option
+                                            value="pt_PT" <?php if ($get_whatsapp_teplate_language == 'pt_PT') { ?> selected <?php } ?>>
+                                            Portuguese (POR)
+                                        </option>
+                                        <option
+                                            value="pa" <?php if ($get_whatsapp_teplate_language == 'pa') { ?> selected <?php } ?>>
+                                            Punjabi
+                                        </option>
+                                        <option
+                                            value="ro" <?php if ($get_whatsapp_teplate_language == 'ro') { ?> selected <?php } ?>>
+                                            Romanian
+                                        </option>
+                                        <option
+                                            value="ru" <?php if ($get_whatsapp_teplate_language == 'ru') { ?> selected <?php } ?>>
+                                            Russian
+                                        </option>
+                                        <option
+                                            value="sr" <?php if ($get_whatsapp_teplate_language == 'sr') { ?> selected <?php } ?>>
+                                            Serbian
+                                        </option>
+                                        <option
+                                            value="sk" <?php if ($get_whatsapp_teplate_language == 'sk') { ?> selected <?php } ?>>
+                                            Slovak
+                                        </option>
+                                        <option
+                                            value="sl" <?php if ($get_whatsapp_teplate_language == 'sl') { ?> selected <?php } ?>>
+                                            Slovenian
+                                        </option>
+                                        <option
+                                            value="es" <?php if ($get_whatsapp_teplate_language == 'es') { ?> selected <?php } ?>>
+                                            Spanish
+                                        </option>
+                                        <option
+                                            value="es_AR" <?php if ($get_whatsapp_teplate_language == 'es_AR') { ?> selected <?php } ?>>
+                                            Spanish (ARG)
+                                        </option>
+                                        <option
+                                            value="es_ES" <?php if ($get_whatsapp_teplate_language == 'es_ES') { ?> selected <?php } ?>>
+                                            Spanish (SPA)
+                                        </option>
+                                        <option
+                                            value="es_MX" <?php if ($get_whatsapp_teplate_language == 'es_MX') { ?> selected <?php } ?>>
+                                            Spanish (MEX)
+                                        </option>
+                                        <option
+                                            value="sw" <?php if ($get_whatsapp_teplate_language == 'sw') { ?> selected <?php } ?>>
+                                            Swahili
+                                        </option>
+                                        <option
+                                            value="sv" <?php if ($get_whatsapp_teplate_language == 'sv') { ?> selected <?php } ?>>
+                                            Swedish
+                                        </option>
+                                        <option
+                                            value="ta" <?php if ($get_whatsapp_teplate_language == 'ta') { ?> selected <?php } ?>>
+                                            Tamil
+                                        </option>
+                                        <option
+                                            value="te" <?php if ($get_whatsapp_teplate_language == 'te') { ?> selected <?php } ?>>
+                                            Telugu
+                                        </option>
+                                        <option
+                                            value="th" <?php if ($get_whatsapp_teplate_language == 'th') { ?> selected <?php } ?>>
+                                            Thai
+                                        </option>
+                                        <option
+                                            value="tr" <?php if ($get_whatsapp_teplate_language == 'tr') { ?> selected <?php } ?>>
+                                            Turkish
+                                        </option>
+                                        <option
+                                            value="uk" <?php if ($get_whatsapp_teplate_language == 'uk') { ?> selected <?php } ?>>
+                                            Ukrainian
+                                        </option>
+                                        <option
+                                            value="ur" <?php if ($get_whatsapp_teplate_language == 'ur') { ?> selected <?php } ?>>
+                                            Urdu
+                                        </option>
+                                        <option
+                                            value="uz" <?php if ($get_whatsapp_teplate_language == 'uz') { ?> selected <?php } ?>>
+                                            Uzbek
+                                        </option>
+                                        <option
+                                            value="vi" <?php if ($get_whatsapp_teplate_language == 'vi') { ?> selected <?php } ?>>
+                                            Vietnamese
+                                        </option>
+                                        <option
+                                            value="zu" <?php if ($get_whatsapp_teplate_language == 'zu') { ?> selected <?php } ?>>
+                                            Zulu
+                                        </option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-gray-700 font-medium">OTP Length<span
+                                            style="color:red;">*</span>:</label>
+                                    <select name="otp_length" required
+                                            class="w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-[#eb5202] focus:outline-none"
+                                            <?php print_r($disabled); ?>>
+                                        <option
+                                            value="3" <?php if ($gatewayConfiguration_otplength == '3') { ?> selected <?php } ?>>
+                                            3
+                                        </option>
+                                        <option
+                                            value="4" <?php if ($gatewayConfiguration_otplength == '4') { ?> selected <?php } ?> >
+                                            4
+                                        </option>
+                                        <option
+                                            value="5" <?php if ($gatewayConfiguration_otplength == '5') { ?> selected <?php } ?> >
+                                            5
+                                        </option>
+                                        <option
+                                            value="6" <?php if ($gatewayConfiguration_otplength == '6') { ?> selected <?php } ?> >
+                                            6
+                                        </option>
+                                        <option
+                                            value="7" <?php if ($gatewayConfiguration_otplength == '7') { ?> selected <?php } ?> >
+                                            7
+                                        </option>
+                                        <option
+                                            value="8" <?php if ($gatewayConfiguration_otplength == '8') { ?> selected <?php } ?> >
+                                            8
+                                        </option>
+                                        <!-- Add more options if required -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex justify-left gap-6 my-8">
+                                <button <?php print_r($disabled); ?> type="submit" name="whatsapp_submit"
+                                                                     style="font-size:1.5rem"
+                                                                     class="text-white py-3 px-6 rounded-lg font-semibold">
+                                    Save
+                                </button>
+                                <button <?php print_r($disabled); ?> type="submit" name="whatsapp_submit_delete"
+                                                                     style="font-size:1.5rem"
+                                                                     class="text-white py-3 px-6 rounded-lg font-semibold">
+                                    Delete
+                                </button>
+                            </div>
+                        </form>
+
+                        <br>
+                        <hr>
+                        <!-- Test SMS -->
+                        <form id="customGateway_whatsapp_test" method="post" action="">
+                            <?php print_r($formKey); ?>
+                            <input type="hidden" name="option" value="customGateway">
+
+                            <h2 class="text-gray-700 font-bold text-lg mt-6 mb-4" style="font-size:1.6rem">Test
+                                Whatsapp Api Configuration</h2>
+                            <div class="flex flex-wrap items-end justify-between">
+                                <div style="width:70%">
+                                    <label class="text-gray-700 font-medium" for="test_email_whatsapp">Send SMS To</label>
+                                    <input type="text" id="test_email_whatsapp"
+                                           name="custom_gateway_test_mobileNumber_whatsapp"
+                                           value="<?php print_r($test_phone_number); ?>"
+                                           class="w-full border rounded-lg p-3 text-gray-700 focus:ring-2 focus:ring-[#eb5202]"
+                                           <?php print_r($disabled); ?>
+                                           placeholder="Enter number for testing">
+                                </div>
+                                <div class="mt-4">
+                                    <button type="submit" <?php print_r($disabled); ?> name="test_sms_whatsapp"
+                                            class=" text-white py-3 px-6 rounded-lg font-semibold  ">Test Whatsapp
+                                        SMS
+                                    </button>
+                                </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function customGatewayMethod() {
+            const selectedMethod = document.getElementById("api_provider").value; // Corrected ID
+            const twilioMethod = document.getElementById("twilio_method");
+            const getMethod = document.getElementById("get_method");
+            const postMethod = document.getElementById("post_method");
+
+            [twilioMethod, getMethod, postMethod].forEach(method => {
+                method.classList.add("hidden");
+                const inputs = method.querySelectorAll("input[required]");
+                inputs.forEach(input => {
+                    input.removeAttribute("required");
+                });
+            });
+
+            // Show the relevant section
+            switch (selectedMethod) {
+                case 'twilio':
+                    twilioMethod.classList.remove("hidden");
+                    // Add required to Twilio fields
+                    const twilioInputs = twilioMethod.querySelectorAll("input");
+                    twilioInputs.forEach(input => {
+                        if (input.name && input.name.includes('twilio')) {
+                            input.setAttribute("required", "required");
+                        }
+                    });
+                    break;
+                case 'getMethod':
+                    getMethod.classList.remove("hidden");
+                    // Add required to Get Method fields
+                    const getMethodInputs = getMethod.querySelectorAll("input");
+                    getMethodInputs.forEach(input => {
+                        if (input.name && input.name.includes('getmethod')) {
+                            input.setAttribute("required", "required");
+                        }
+                    });
+                    break;
+                case 'postMethod':
+                    postMethod.classList.remove("hidden");
+                    // Add required to Post Method fields
+                    const postMethodInputs = postMethod.querySelectorAll("input");
+                    postMethodInputs.forEach(input => {
+                        if (input.name && (input.name.includes('postmethod') || input.name.includes('post_method') || input.name.includes('dynamic_attributes'))) {
+                            input.setAttribute("required", "required");
+                        }
+                    });
+                    break;
+                default:
+                    console.warn("Unsupported method selected:", selectedMethod);
+            }
+        }
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Initialize required attributes based on current selection
+            customGatewayMethod();
+            
+            // Attach event listener to all remove buttons
+            document.querySelectorAll(".remove-key").forEach(button => {
+                button.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    const parentDiv = event.target.closest(".flex"); // Find the parent div
+                    const keyInput = parentDiv.querySelector("input[type='text']:not([disabled])"); // Find the first input (key)
+
+                    if (keyInput) {
+                        keyInput.value = ""; // Clear the value of the key input
+                    }
+                });
+            });
+        });
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            const addAttrButton = document.getElementById("add_custom_attr");
+            const dynamicAttributes = document.getElementById("dynamic_attributes");
+
+            let attrIndex = dynamicAttributes.querySelectorAll(".attribute-row").length || 0;
+
+            // Add a new custom attribute
+            addAttrButton.addEventListener("click", () => {
+                const attrDiv = document.createElement("div");
+                attrDiv.className = "flex mt-4 items-center attribute-row";
+                attrDiv.setAttribute("data-index", attrIndex);
+
+                // Attribute name input
+                const attrNameInput = document.createElement("input");
+                attrNameInput.type = "text";
+                attrNameInput.placeholder = "Enter Parameter";
+                attrNameInput.className = "form-control gm-input w-full";
+                attrNameInput.style.width = "57%";
+                attrNameInput.name = `dynamic_attributes[${attrIndex}][name]`;
+                attrNameInput.required = true;
+
+                // Value input
+                const attrValueInput = document.createElement("input");
+                attrValueInput.type = "text";
+                attrValueInput.placeholder = "Enter Value";
+                attrValueInput.className = "form-control gm-input ml-4 w-full";
+                attrValueInput.style.width = "57%";
+                attrValueInput.name = `dynamic_attributes[${attrIndex}][value]`;
+                attrValueInput.required = true;
+
+                // Remove button
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.textContent = "-";
+                deleteButton.className = "text-white p-2 rounded ml-4";
+                deleteButton.style.width = "5rem";
+                deleteButton.style.backgroundColor = "#eb5202";
+                deleteButton.addEventListener("click", () => {
+                    attrDiv.remove();
+                });
+
+                // Append inputs and button to the row
+                attrDiv.appendChild(attrNameInput);
+                attrDiv.appendChild(attrValueInput);
+                attrDiv.appendChild(deleteButton);
+
+                // Append the row to the dynamic attributes section
+                dynamicAttributes.appendChild(attrDiv);
+
+                attrIndex++;
+            });
+
+            // Delegate click event for dynamically added remove buttons
+            dynamicAttributes.addEventListener("click", (event) => {
+                if (event.target.tagName === "BUTTON" && event.target.textContent === "-") {
+                    event.target.closest(".attribute-row").remove();
+                }
+            });
+        });
+
+
+    </script>
+

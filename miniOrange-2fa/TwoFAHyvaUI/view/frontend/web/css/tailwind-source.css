@@ -1,0 +1,1181 @@
+/* Removing the Magento Html */
+#miniorange-2fa-container .page-header, .sidebar, .page-footer, .copyright {
+    display: none !important;
+}
+
+/* Basic Reset */
+#miniorange-2fa-container body {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+
+#miniorange-2fa-container .columns .column.main {
+    width: 100% !important;
+}
+
+#miniorange-2fa-container input[type="text"]:disabled {
+    opacity: unset;
+    background: #EDEDED;
+    color: black;
+}
+
+/* Card div  */
+#miniorange-2fa-container .btn {
+    background: #FF6600;
+    border-radius: 4px;
+    box-shadow: 0 2px 0px 0 rgba(0, 0, 0, 0.25);
+    color: #ffffff;
+    display: inline-block;
+    padding: 6px 30px 8px;
+    position: relative;
+    text-decoration: none;
+    transition: all 0.1s 0s ease-out;
+}
+
+#miniorange-2fa-container .default-btn {
+    border-radius: 4px;
+    box-shadow: 0 2px 0px 0 rgba(0, 0, 0, 0.25);
+    color: black;
+    display: inline-block;
+    padding: 6px 30px 8px;
+    position: relative;
+    text-decoration: none;
+    transition: all 0.1s 0s ease-out;
+}
+
+#miniorange-2fa-container .no-touch .btn:hover {
+    cursor: pointer;
+    background: #FF6600;
+    box-shadow: 0px 8px 2px 0 rgba(0, 0, 0, 0.075);
+    transform: translateY(-2px);
+    transition: all 0.25s 0s ease-out;
+}
+
+#miniorange-2fa-container .no-touch .btn:active,
+.btn:active {
+    background: #FF6600;
+    box-shadow: 0 1px 0px 0 rgba(255, 255, 255, 0.25);
+    transform: translate3d(0, 1px, 0);
+    transition: all 0.025s 0s ease-out;
+}
+
+#miniorange-2fa-container div.cards {
+    margin: 200px auto;
+    padding: 30px;
+    text-align: center;
+}
+
+#miniorange-2fa-container div.card {
+    background: #ffffff;
+    display: inline-block;
+    margin: 8px;
+    padding: 5px;
+    perspective: 1000;
+    position: relative;
+    text-align: left;
+    transition: all 0.3s 0s ease-in;
+    z-index: 1;
+}
+
+#miniorange-2fa-container div.card img {
+    max-width: 150px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#miniorange-2fa-container div.card .card__image-holder {
+    background: rgba(0, 0, 0, 0.1);
+    height: 0;
+    padding-bottom: 75%;
+}
+
+#miniorange-2fa-container div.card div.card-title {
+    background: #ffffff;
+    padding: 6px 15px 10px;
+    position: relative;
+    z-index: 0;
+}
+
+#miniorange-2fa-container div.card div.card-title a.toggle-info {
+    border-radius: 32px;
+    height: 32px;
+    padding: 0;
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    width: 32px;
+}
+
+#miniorange-2fa-container div.card div.card-title a.toggle-info span {
+    background: #ffffff;
+    display: block;
+    height: 2px;
+    position: absolute;
+    top: 16px;
+    transition: all 0.15s 0s ease-out;
+    width: 12px;
+}
+
+#miniorange-2fa-container div.card div.card-title a.toggle-info span.left {
+    right: 14px;
+    transform: rotate(45deg);
+}
+
+#miniorange-2fa-container div.card div.card-title a.toggle-info span.right {
+    left: 14px;
+    transform: rotate(-45deg);
+}
+
+#miniorange-2fa-container div.card div.card-title h2 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    margin: 0;
+    padding: 0;
+}
+
+#miniorange-2fa-container div.card div.card-title h2 small {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+#miniorange-2fa-container div.card div.card-description {
+    padding: 0 15px 10px;
+    position: relative;
+    font-size: 14px;
+}
+
+#miniorange-2fa-container .card-description h2{
+    font-size: 1.5625rem;
+}
+
+#miniorange-2fa-container .card-description p{
+    font-size: 0.9rem;
+}
+
+#miniorange-2fa-container div.card div.card-actions {
+    box-shadow: 0 2px 0px 0 rgba(0, 0, 0, 0.075);
+    padding: 10px 15px 20px;
+    text-align: center;
+}
+
+#miniorange-2fa-container div.card div.card-flap {
+    background: #d9d9d9;
+    position: absolute;
+    width: 100%;
+    transform-origin: top;
+    transform: rotateX(-90deg);
+}
+
+#miniorange-2fa-container div.card div.flap1 {
+    transition: all 0.3s 0.3s ease-out;
+    z-index: -1;
+}
+
+#miniorange-2fa-container div.card div.flap2 {
+    transition: all 0.3s 0s ease-out;
+    z-index: -2;
+}
+
+#miniorange-2fa-container div.cards.showing div.card {
+    cursor: pointer;
+    opacity: 0.6;
+    transform: scale(0.88);
+}
+
+#miniorange-2fa-container.no-touch div.cards.showing div.card:hover {
+    opacity: 0.94;
+    transform: scale(0.92);
+}
+
+#miniorange-2fa-container div.card.show {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+#miniorange-2fa-container div.card.show div.card-title a.toggle-info {
+    background: #ff6666 !important;
+}
+
+#miniorange-2fa-container div.card.show div.card-title a.toggle-info span {
+    top: 15px;
+}
+
+#miniorange-2fa-container div.card.show div.card-title a.toggle-info span.left {
+    right: 10px;
+}
+
+#miniorange-2fa-container div.card.show div.card-title a.toggle-info span.right {
+    left: 10px;
+}
+
+#miniorange-2fa-container div.card.show div.card-flap {
+    background: #ffffff;
+    transform: rotateX(0deg);
+}
+
+#miniorange-2fa-container div.card.show div.flap1 {
+    transition: all 0.3s 0s ease-out;
+}
+
+#miniorange-2fa-container div.card.show div.flap2 {
+    transition: all 0.3s 0.2s ease-out;
+}
+
+#miniorange-2fa-container .correct-icon {
+    content: "\2713";
+    padding: 0;
+    position: absolute;
+    right: 5px;
+    font-size: 30px;
+    color: green;
+    font-weight: bold;
+}
+
+#miniorange-2fa-container .method-input-box {
+    width: 100%;
+    border: 2px solid #aaa;
+    border-radius: 4px;
+    margin: 8px 0;
+    outline: none;
+    padding: 8px;
+    box-sizing: border-box;
+    transition: .3s;
+}
+
+#miniorange-2fa-container .method-input-box:focus {
+    border-color: dodgerBlue;
+    box-shadow: 0 0 8px 0 dodgerBlue;
+}
+
+#miniorange-2fa-container .info-msg,
+#miniorange-2fa-container .success-msg,
+#miniorange-2fa-container .warning-msg,
+#miniorange-2fa-container .error-msg {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 3px 3px 3px 3px;
+}
+
+#miniorange-2fa-container .info-msg {
+    color: #059;
+    background-color: #BEF;
+}
+
+#miniorange-2fa-container .success-msg {
+    color: #270;
+    background-color: #DFF2BF;
+}
+
+#miniorange-2fa-container .warning-msg {
+    color: #9F6000;
+    background-color: #FEEFB3;
+}
+
+#miniorange-2fa-container .error-msg {
+    color: #D8000C;
+    background-color: #FFBABA;
+}
+
+/*customer cards css */
+#miniorange-2fa-container div.choosemethod_cards {
+    margin: 200px auto;
+    padding: 30px;
+    text-align: center;
+}
+
+/**customer ui changes */
+#miniorange-2fa-container .customer_container {
+    margin-right: auto;
+    margin-left: auto;
+    margin-top: auto;
+    margin-bottom: auto;
+    background: green;
+}
+
+#miniorange-2fa-container .customer_row {
+    margin-right: auto;
+    margin-left: auto
+}
+
+#miniorange-2fa-container .customer_card {
+    width: max-content;
+    margin-top: auto;
+    margin-bottom: auto;
+    margin-right: auto;
+    margin-left: auto;
+    background: var(--card-color);
+    display: inline-block;
+    padding: 30px;
+    perspective: 1000;
+    position: relative;
+    text-align: left;
+    z-index: 1;
+    position: fixed; /* or absolute */
+    top: 50%;
+    left: 50%;
+    /* bring your own prefixes */
+    transform: translate(-50%, -50%);
+
+}
+.customer_card h2 {
+    font-size: 1.5625rem;
+    color: #333;
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+
+
+div.customer_card img {
+    max-width: 150px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#miniorange-2fa-container .customer_btn {
+    background: var(--button-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 0px 0 rgba(0, 0, 0, 0.25);
+    color: #ffffff;
+    display: inline-block;
+    padding: 6px 30px 8px;
+    position: relative;
+    text-decoration: none;
+    color: var(--button-text-color)
+}
+
+#miniorange-2fa-container .customer-method-input-box {
+
+    width: 20%;
+    border: 2px solid #aaa;
+    border-radius: 4px;
+    margin: 8px 0;
+    outline: none;
+    padding: 3px 8px;
+    box-sizing: border-box;
+    background: var(--input-background-color);
+    color: var(--input-text-color);
+    font-size: 14px;
+}
+
+#miniorange-2fa-container body {
+    background: var(--popup-background-color);
+    color: var(--background-text-color);
+}
+
+#miniorange-2fa-container .success_message {
+    color: var(--success-message-text);
+    word-wrap: normal;
+}
+
+#miniorange-2fa-container .error_message {
+    color: var(--error-message-text);
+}
+
+
+#miniorange-2fa-container .skip_button {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    color: #0000FF; /* Set the default text color */
+    transition: color 0.3s; /* Add a smooth transition for the color change */
+    display: inline; /* Make sure the button is displayed inline */
+    margin-top: 0px;
+}
+
+/* Change text color on hover */
+#miniorange-2fa-container .skip_button:hover {
+    color: #000;
+    background: none;
+    border: none;
+    padding: 0;
+    /* Set the text color when hovering */
+}
+
+#miniorange-2fa-container .skipTwoFa_section {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 20px;
+
+}
+
+/* Default styles (works for both Luma & Hyvä) */
+/* updated ui changes */
+
+OOW, OOS method start
+#miniorange-2fa-container input:focus, #miniorange-2fa-container select:focus {
+    outline: none;
+    border-color: #ff8500;
+}
+
+
+#miniorange-2fa-container .help-dropdown:hover {
+    text-decoration: underline;
+    color: #ff8500;
+}
+
+#miniorange-2fa-container .help-dropdown {
+    color: #ff8500;
+}
+
+#miniorange-2fa-container.phone-input-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+#miniorange-2fa-container .country-code-select {
+    width: 30%;
+    padding: 10px;
+    border: 2px solid #ff8500;
+    background-color: #fff;
+    color: #000;
+    appearance: none;
+    font-size: 16px;
+}
+
+#miniorange-2fa-container .col-sm-4{
+    font-size: 0.875rem;
+}
+
+#miniorange-2fa-container input[type="text"]{
+    font-size: 0.875rem;
+}
+
+#miniorange-2fa-container .phone-number-input {
+    width: 65%;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border: 2px solid #ff8500;
+    background-color: #fff;
+    color: #000;
+    font-size: 16px;
+}
+
+#miniorange-2fa-container .phone-number-input:focus, .country-code-select:focus {
+    border-color: #ff8500;
+    box-shadow: 0 0 5px rgba(255, 133, 0, 0.5);
+}
+
+#miniorange-2fa-container .back_button {
+    color: #ff8500;
+    border: none;
+    background-color: white;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+#miniorange-2fa-container .back_button:hover {
+    text-decoration: underline;
+    background-color: white;
+    border: none;
+    color: #ff8500;
+}
+
+#miniorange-2fa-container .skip_button:hover {
+    text-decoration: underline;
+
+}
+
+
+/* OOS , OOW method end */
+
+
+/* OOE method */
+
+#miniorange-2fa-container .back_button:hover {
+    text-decoration: underline;
+}
+
+#miniorange-2fa-container .help-dropdown:hover {
+    text-decoration: underline;
+    color: #ff8500;
+}
+
+#miniorange-2fa-container .help-dropdown {
+    color: #ff8500;
+}
+
+#miniorange-2fa-container .phone-number-input {
+    width: 65%;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border: 2px solid #ff8500;
+    background-color: #fff;
+    color: #000;
+    font-size: 16px;
+}
+
+#miniorange-2fa-container .phone-number-input:focus, .country-code-select:focus {
+    border-color: #ff8500;
+    box-shadow: 0 0 5px rgba(255, 133, 0, 0.5);
+}
+
+
+/* OOE methof end */
+
+/* ga method validaation */
+
+#miniorange-2fa-container div.customer_card img {
+    max-width: 6.25rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#miniorange-2fa-container .input-group input {
+    width: 40px;
+    text-align: center;
+    margin: 0 5px;
+    font-size: 1.3em;
+}
+
+#miniorange-2fa-container .authenticator_steps {
+    max-width: 600px;
+    margin: 0 auto;
+    font-family: Arial, sans-serif;
+}
+
+#miniorange-2fa-container .scanner_name_text {
+    display: flex;
+    gap: 3%;
+    justify-content: space-around;
+    margin-top: 10px;
+}
+
+#miniorange-2fa-container .scanner_text {
+    background-color: #fff;
+    padding: 5px;
+    border-radius: 8px;
+    border: 2px dotted #ff8500;
+}
+
+#miniorange-2fa-container .customer_btn {
+    background-color: #ff8500;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 1em;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+#miniorange-2fa-container .customer_btn:hover {
+    background-color: #ff8500;
+    color: white;
+}
+
+#miniorange-2fa-container .back-button {
+    color: #ff8500;
+    text-decoration: none;
+}
+
+/* Updated CSS for copied message */
+#miniorange-2fa-container #copiedMessage {
+    display: block;
+    position: absolute;
+    top: -30px; /* Positioned above the QR code */
+    left: 50%;
+    transform: translateX(-50%);
+    /* padding: 8px 12px; */
+    background-color: #ff8500;
+    color: black;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: opacity 0.3s ease, top 0.3s ease;
+    opacity: 0;
+}
+
+#miniorange-2fa-container #copiedMessage.show {
+    opacity: 1;
+    top: -40px; /* Slightly above the QR code */
+    color: #0056b3;
+}
+
+#miniorange-2fa-container .back_button {
+    color: #ff8500;
+    border: none;
+    background-color: white;
+    cursor: pointer;
+    text-decoration: none; /* Ensure no underline by default */
+}
+
+#miniorange-2fa-container .back_button:hover {
+    text-decoration: underline; /* Underline the text on hover */
+    background-color: white;
+    border: none;
+    color: #ff8500;
+}
+
+#miniorange-2fa-container .help-dropdown:hover {
+    text-decoration: underline; /* Underline the text on hover */
+    color: #ff8500;
+
+
+}
+
+#miniorange-2fa-container #copiedMessage {
+    display: block;
+    position: absolute;
+    top: -30px; /* Adjust this to position above */
+    left: 80%;
+    transform: translateX(-50%);
+    background-color: #ff8500;
+    color: white;
+    border-radius: 4px;
+    font-size: 14px;
+    padding: 5px 10px;
+    transition: opacity 0.3s ease, top 0.3s ease;
+    opacity: 0;
+}
+
+#miniorange-2fa-container .fa-copy {
+    cursor: pointer;
+}
+
+#miniorange-2fa-container #copiedMessage.show {
+    opacity: 1;
+    top: -40px; /* Slightly higher for animation effect */
+}
+
+/* ga method validaation end */
+
+
+/* choose method */
+
+
+#miniorange-2fa-container .auth-container {
+    width: 100%;
+    max-width: 400px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 30px 20px;
+    text-align: center;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: Arial, sans-serif;
+}
+
+#miniorange-2fa-container .back-button:hover {
+    text-decoration: underline;
+}
+
+#miniorange-2fa-container .help-dropdown:hover {
+    text-decoration: underline;
+}
+
+
+#miniorange-2fa-container .auth-container h1 {
+    font-size: 0.9375rem;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+#miniorange-2fa-container .auth-container h2 {
+    font-size: 1.8125rem;
+    color: #333;
+    margin-top: 0px;
+    margin-bottom: 10px;
+}
+
+#miniorange-2fa-container h2 {
+    font-size: 1.8125rem;
+    color: #333;
+    margin-top: 0px;
+    margin-bottom: 10px;
+}
+
+
+#miniorange-2fa-container .auth-container p {
+    font-size: 0.9375rem;
+    color: #777;
+    margin-bottom: 20px;
+}
+
+#miniorange-2fa-container .auth-method {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    /* border-radius: 8px; */
+    /* margin-bottom: 10px; */
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.2s;
+}
+
+#miniorange-2fa-container .auth-method:hover {
+    background-color: #f1f5f9;
+}
+
+#miniorange-2fa-container .auth-method i,
+#miniorange-2fa-container .auth-method img {
+    font-size: 1.5rem;
+    color: #555;
+    margin-right: 15px;
+    width: 24px;
+    height: 24px;
+}
+
+#miniorange-2fa-container .method-info {
+    padding-left: 9%;
+}
+
+#miniorange-2fa-container .method-info .method-name {
+    font-size: 0.9rem;
+    color: #333;
+    margin: 0;
+}
+
+#miniorange-2fa-container .method-info .method-desc {
+    font-size: 0.8125rem;
+    color: #777;
+    margin: 0;
+}
+
+
+#miniorange-2fa-container .top_icon {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+#miniorange-2fa-container .top_icon a {
+    text-decoration: none;
+}
+
+#miniorange-2fa-container .col-sm-12{
+    display: flex;
+    justify-content: center;
+}
+#miniorange-2fa-container .col-sm-12 label{
+    font-size: 0.875rem;
+}
+#miniorange-2fa-container input[type="checkbox"]{
+    margin-top: 5px;
+    border-radius: 2px;
+    width: 12px;
+    height: 12px;
+}
+
+/* Mobile Responsiveness for screen sizes below 449px */
+@media (max-width: 449px) {
+    #miniorange-2fa-container .auth-container {
+        width: 90%; /* Adjust container width to take up more space on small screens */
+        max-width: 300px;
+        padding: 20px;
+        overflow: auto;
+    }
+
+
+}
+
+/* CSS to highlight selected method */
+#miniorange-2fa-container .auth-method.selected {
+    background-color: #f1f5f9;
+    border: 2px solid #007bff; /* Add border to indicate selection */
+}
+
+/* choose method end */
+
+
+/* invokeusertfa */
+#miniorange-2fa-container .customer_btn:hover {
+    background-color: #e07600;
+}
+
+#miniorange-2fa-container .back-button, .back_button {
+    color: #ff8500;
+    border: none;
+    cursor: pointer;
+}
+
+#miniorange-2fa-container .back_button:hover, .back_button:active {
+    text-decoration: underline;
+}
+
+/* invokeusertfa end */
+
+/* remaining */
+
+#miniorange-2fa-container select:focus {
+    border-color: #ff8500; /* Matches your theme */
+    outline: none; /* Remove default outline */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+
+    box-shadow: 0 0 5px rgba(255, 133, 0, 0.5); /* Optional: adds a subtle shadow for focus */
+}
+
+/* When the input is focused (clicked on), change the border to orange */
+#miniorange-2fa-container input[type="number"]:focus {
+    border-color: #ff8500; /* Orange border */
+    box-shadow: 0 0 5px rgba(255, 133, 0, 0.5); /* Optional: adds a subtle glow around the input */
+}
+
+#miniorange-2fa-container input[type="number"]
+{
+    padding: 0px 9px;
+    font-size: 14px;
+    height: 32px;
+}
+
+/* General container styling */
+#miniorange-2fa-container .container_new {
+    background: white;
+    color: var(--background-text-color);
+    max-width: 440px;
+    margin: 0 auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    background-size: cover;
+    background-position: center;
+    width: 100%;
+    padding: 25px 30px;
+    background: #ffffff;
+    border-radius: 8px;
+    text-align: center;
+    position: relative;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Default Styles for Luma */
+#miniorange-2fa-container .theme-luma .container_new {
+    max-width: 0px;
+}
+
+/* Default Styles for Hyvä */
+#miniorange-2fa-container .theme-hyva .container_new {
+    max-width: 440px;
+}
+
+
+/* Back button styling */
+#miniorange-2fa-container .back-button {
+    display: inline-block;
+    font-size: 14px;
+    text-decoration: none;
+    color: #ff8500;
+    margin-bottom: 10px;
+}
+
+/* Help dropdown styling */
+#miniorange-2fa-container .help-dropdown {
+    display: inline-block;
+    font-size: 14px;
+    text-decoration: none;
+    color: #ff8500;
+    margin-bottom: 10px;
+}
+
+/* Dropdown content */
+#miniorange-2fa-container .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
+#miniorange-2fa-container .help-dropdown:hover .dropdown-content {
+    display: block;
+}
+
+#miniorange-2fa-container .dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+/* Input field styling */
+#miniorange-2fa-container .input-group input {
+    width: 49px;
+    height: 49px;
+    margin: 5px;
+    text-align: center;
+    font-size: 19px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#miniorange-2fa-container .checkbox-container {
+    margin: 15px 0;
+}
+
+/* Button styles */
+
+
+#miniorange-2fa-container .btn-secondary {
+    background-color: #ccc;
+    color: white;
+    padding: 12px 24px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+}
+
+#miniorange-2fa-container .btn-secondary:hover {
+    background-color: #aaa;
+}
+
+/* Secondary actions */
+#miniorange-2fa-container .secondary-actions {
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+#miniorange-2fa-container .resend-link {
+    color: #007bff;
+    text-decoration: none;
+}
+
+#miniorange-2fa-container .top_icon {
+    display: flex;
+    align-content: center;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#miniorange-2fa-container .resend-link:hover {
+    text-decoration: underline;
+}
+
+#miniorange-2fa-container .message_container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 4rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+}
+
+#miniorange-2fa-container .back-button, .back_button {
+    color: #ff8500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+}
+
+#miniorange-2fa-container .back_button:hover, .back_button:active {
+    text-decoration: underline;
+}
+
+#miniorange-2fa-container .btn-primary {
+    width: 100%;
+    background-color: #ff8500;
+    color: white;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    transition: background-color 0.4s ease, color 0.4s ease;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 3px;
+}
+
+#miniorange-2fa-container .btn-primary:hover {
+    background: linear-gradient(to right, #d8ccbf, #cac4ba);
+}
+
+
+@media (max-width: 450px) {
+    #miniorange-2fa-container .container_new {
+        max-width: 296px;
+        padding: 10px;
+    }
+
+    #miniorange-2fa-container .message_container {
+        height: 8rem;
+        padding: 5px;
+        font-size: 0.5625rem;
+    }
+
+    #miniorange-2fa-container .scanner_name_text {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #miniorange-2fa-container .mo2f_gauth,
+    #qrcode {
+        max-width: 200px !important;
+        max-height: 200px !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    #miniorange-2fa-container .scanner_text {
+        width: 100%;
+        margin-top: 2rem;
+        text-align: center;
+        font-size: 0.5625rem;
+        padding: 10px;
+        border-radius: 6px;
+        border: 2px dotted #ff8500;
+    }
+
+    #miniorange-2fa-container .scanner_text h5 {
+        font-size: 0.0625rem;
+        margin-top: 5px;
+    }
+
+    #miniorange-2fa-container .scanner_text p {
+        font-size: 0.05625rem;
+        word-wrap: break-word;
+    }
+}
+
+
+/* customter_2fa_settings css */
+
+/* Force sidebar to display */
+.sidebar,
+.sidebar.main,
+.page-layout-2columns-left .sidebar-main,
+.page-layout-2columns-left .sidebar-additional,
+.account-nav,
+.account-nav-container,
+.nav.items,
+.block-collapsible-nav {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    height: auto !important;
+    position: relative !important;
+    z-index: 1 !important;
+    overflow: visible !important;
+}
+
+
+#mo-twofa-content table {
+    width: 90% !important;
+    border: 1px black !important;
+    border-collapse: collapse !important;
+    
+    overflow: hidden !important;
+}
+
+#mo-twofa-content th,
+#mo-twofa-content td {
+    border: 1px solid black !important;
+    padding: 0.75rem 1rem !important;
+    text-align: left !important;
+    vertical-align: top !important;
+}
+
+#mo-twofa-content th {
+    background-color: #f9fafb !important;
+    font-weight: 600 !important;
+}
+
+#mo-twofa-content button {
+    background-color: #2563eb !important;
+    color: white !important;
+    padding: 0.5rem 1.25rem !important;
+    border-radius: 0.375rem !important;
+    font-weight: 500 !important;
+    transition: background-color 0.2s ease !important;
+    border: none !important;
+}
+
+#mo-twofa-content button:hover {
+    background-color: #1d4ed8 !important;
+}
+
+#mo-twofa-content h1{
+    font-size: 30px;
+}
+
+
+.phone-input-container{
+    display: flex;
+    align-items: center;
+    align-content: center;
+    gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+    .phone-input-container {
+        gap: 0.5rem;
+        padding: 0 0.5rem;
+    }
+    
+    .phone-input-container .country-code-select,
+    .phone-input-container .phone-number-input {
+        font-size: 14px;
+        padding: 8px;
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.auth-method {
+    position: relative;
+    cursor: pointer;
+}
+.method-arrow {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+}
+.auth-method:hover .method-arrow {
+    color: #ff8500;
+}
+.method-loader {
+    position: absolute;
+    right: 38px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+}
+.method-loader.show {
+    display: block;
+}
+.method-loader svg {
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+.arrow_icon{
+    font-size: 1rem;
+}

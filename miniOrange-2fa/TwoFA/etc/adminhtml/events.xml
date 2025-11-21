@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<!-- This file defines our Events -->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!-- This event is invoked before every controller is processed -->
+    <event name="customer_delete_before">
+        <observer name="BeforeCustomer" instance="MiniOrange\TwoFA\Observer\TwoFAObserver"/>
+    </event>
+</config>

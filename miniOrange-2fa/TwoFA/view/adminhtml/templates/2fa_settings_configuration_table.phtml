@@ -1,0 +1,402 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+<style>
+    .toggle-slider {
+        position: relative;
+        width: 4.5rem;
+        height: 2.3rem;
+        background-color: #e5e7eb;
+        border-radius: 9999px;
+        transition: background-color 0.3s ease-in-out;
+    }
+
+    .second {
+        border: 1px solid black;
+        background-color: white;
+        color: black;
+        gap: 0.75rem;
+        border-radius: 0.375rem;
+        text-align: center;
+        display: flex;
+        cursor: pointer;
+        border: 1px solid rgb(203 213 225);
+    }
+
+    .mo-button {
+        display: flex;
+        height: 40px;
+        width: 100%;
+        cursor: pointer;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        border-radius: 0.375rem;
+        border-style: none;
+        padding: 0 1.5rem;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .peer:checked + .toggle-slider {
+        background-color: #eb5202;
+    }
+
+    .toggle-slider::after {
+        content: '';
+        position: absolute;
+        top: 5px;
+        left: 0.8rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        background-color: white;
+        border-radius: 9999px;
+        transition: transform 0.3s ease-in-out;
+    }
+
+    .peer:checked + .toggle-slider::after {
+        transform: translateX(1.5rem);
+    }
+
+    .existing-rule {
+        background: #f9fafb;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .delete-btn {
+        color: #f87171;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .delete-btn:hover {
+        color: brown !important;
+    }
+
+    .otp-method:hover {
+        background-color: #e5e7eb;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .options-box {
+        min-width: 150px;
+        padding: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #fff;
+        z-index: 10;
+    }
+
+    .options-box .flex {
+        display: flex;
+        align-items: center;
+    }
+
+    .options-box .flex:hover {
+        background-color: #f3f4f6;
+    }
+
+    .material-icons {
+        font-size: 1.5rem;
+    }
+
+    .table_2fa {
+        width: 100%;
+        border-radius: 50px; /* Add border-radius to the table */
+        border: 2px solid #e5e7eb; /* Outer border */
+        border-collapse: collapse; /* Ensures clean outer boundaries */
+
+    }
+
+    .table_2fa thead {
+        background-color: #e5e7eb; /* Gray background */
+
+    }
+
+    .table_2fa th {
+        text-aligremn: left;
+        font-weight: bold;
+        padding: 2rem; /* Padding for header cells */
+        font-size: 1.5rem;
+        border: none; /* Remove individual borders */
+    }
+
+    .table_2fa tbody td {
+        padding: 1.5rem;
+        border-right: none;
+        border-left: none;
+    }
+
+    .table_2fa tr:hover {
+        background-color: #f9fafb; /* Hover effect for rows */
+    }
+
+    .addRule:hover {
+        color: white;
+        background-color: #ba4000 !important;
+    }
+</style>
+
+<?php
+// PHP Initialization
+$customerRules = $this->get_customerexistingRules();
+$adminRules = $this->get_existingRules();
+$isSandboxTrialEnabled = $this->ifSandboxTrialEnabled();
+$currentAdminUser = $this->getCurrentAdminUser()->getUsername();
+$currentUserStore = "";
+if($isSandboxTrialEnabled)
+{
+    $currentUserStore = $this->getCurrentAdminUser()->getData('store_name');
+}
+
+// Combine customer and admin rules
+$existingRules = array_merge(
+    array_map(function ($rule) {
+        $rule['type'] = 'Customer';
+        return $rule;
+    }, $customerRules),
+    array_map(function ($rule) {
+        $rule['type'] = 'Admin';
+        return $rule;
+    }, $adminRules)
+);
+
+
+$formKey = $this->getBlockHtml('formkey'); // Security form key
+$create_account_first = $this->checkaccountVerified() ? '' : 'disabled';
+$pricing = $this->getExtensionPageUrl('upgrade');
+$account = $this->getExtensionPageUrl('account');
+$is_enterpriseplan_active = $this->check2fa_backend_plan() ? '' : 'disabled';
+
+$tfa_settings_selection_page = $this->getExtensionPageUrl('tfaadmincustomerbox');
+$settings2fa = $this->getExtensionPageUrl('settings2fa');
+$admin2fa = $this->getExtensionPageUrl('admin2fa');
+$tfasettingsconfigurationtable_url = $this->getUrl('motwofa/tfasettingsconfigurationtable/index');
+$admin2fa = $this->getExtensionPageUrl('admin2fa');
+$customer2fa = $this->getExtensionPageUrl('customer2fa');
+
+
+?>
+
+<div class="p-6" style="width:70%;">
+    <?php if ($create_account_first == 'disabled') { ?>
+        <div class="error-msg" style="margin: 2rem 0;">
+            Please register and verify your account before trying to configure your settings. Go to the <a
+                href="<?= $account ?>" style="font-weight:bold">Account</a> section to complete your registration.
+        </div>
+    <?php } ?>
+
+    <div class="bg-white rounded-lg shadow p-6" style="width: 100%;">
+        <?php if ($is_enterpriseplan_active === 'disabled') { ?>
+            <span class="enterprise_feature">
+
+            </span>
+        <?php } ?>
+
+        <!-- Existing Rules Section -->
+        <div class="flex items-center justify-between" style="margin-bottom: 4rem;">
+            <h1 class="text-3xl font-bold mb-6 text-black" style="font-size: 2.5rem; padding-top:1rem">Existing 2FA
+                Settings</h1>
+            <a href="<?= $tfa_settings_selection_page ?>"
+               class="text-white hover:text-orange-700 font-bold text-sm rounded-lg px-4 py-2 hover:bg-gray-200 addRule"
+               style="font-size: 1.4rem;font-weight:600;
+                padding: 1.34rem;background-color: #eb5202;color:white;text-decoration:none">
+                + New Rules
+            </a></div>
+
+        <table class="min-w-full table-auto table_2fa">
+            <thead>
+            <tr>
+                <th class="border px-4 py-4 text-left">Type</th>
+                <th class="border px-4 py-4 text-left">Website</th>
+                <th class="border px-4 py-4 text-left">Group/Role</th>
+                <th class="border px-4 py-4 text-left">Methods</th>
+                <th class="border px-4 py-4 text-left">Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($existingRules as $rule) : 
+                if(($isSandboxTrialEnabled && isset($rule['site']) && $rule['site'] == $currentUserStore) || ($isSandboxTrialEnabled && isset($rule['admin']) && $rule['admin'] == $currentAdminUser) || $currentUserStore == "") {
+                ?>
+                <tr>
+                    <td class="border px-4 py-2"><?= $rule['type'] ?></td>
+                    <td class="border px-4 py-2"><?= $rule['site'] ?? 'N/A' ?></td>
+                    <td class="border px-4 py-2"><?= $rule['group'] ?? $rule['role'] ?></td>
+                    <td class="border px-4 py-2">
+                        <div class="mt-3 flex flex-wrap gap-4">
+                            <?php foreach ($rule['methods'] as $method) : ?>
+                                <div class="otp-method py-2 px-2" style="background-color: #eeeeee;border-radius: 4px;">
+                                    <i class="<?= $method['icon'] ?>"></i> <?= $method['label'] ?>
+                                </div>
+                            <?php endforeach;?>
+                        </div>
+                    </td>
+                    <td class="border px-4 py-2 text-center">
+                        <table class="table-auto w-full border-collapse" style="border: none;">
+                            <tr>
+                                <td class="px-4 py-2 text-center relative">
+                                    <button
+
+
+                                        class="text-orange-500 hover:text-orange-700 cursor-pointer"
+                                        style="font-size: 2rem; border:none;background-color:white;color:black"
+                                        onclick="toggleOptions(this, '<?= $rule['group'] ?? $rule['role'] ?>')">
+                                        &#8942;
+                                    </button>
+                                    <div class="options-box hidden absolute bg-white shadow rounded-lg border p-2 z-10"
+                                         style="min-width: 150px; top: 100%; left: 50%; transform: translateX(-50%);">
+                                        <form id="saveSignInSettings" method="post"
+                                              action="<?= $tfasettingsconfigurationtable_url ?>">
+                                            <?php print_r($formKey); ?>
+
+                                            <div
+                                                class="flex items-center cursor-pointer p-2 hover:bg-gray-200 transition"
+                                                onclick="editRule('<?= $rule['group'] ?? $rule['role'] ?>',
+                                                    '<?= $rule['site'] ?? '' ?>',
+                                                    '<?= $rule['type'] ?>')">
+                                                <i class="fa fa-edit text-black mr-2"></i>
+                                                <span>Edit</span>
+                                            </div>
+
+
+                                            <div
+                                                class="flex items-center cursor-pointer p-2 hover:bg-gray-200 transition"
+                                                onclick="deleteRule('<?= $rule['group'] ?? $rule['role'] ?>', '<?= $rule['site'] ?? '' ?>', '<?= $rule['type'] ?>')">
+                                                <i class="fa fa-trash text-black mr-2"></i>
+                                                <input id="ruleid" type="hidden" name="rules" value="">
+                                                <input id="customer_type" type="hidden" name="" value="">
+                                                <input id="delete_role" type="hidden" name="delete_role" value="">
+                                                <input id="delete_role_site" type="hidden" name="delete_role_site"
+                                                       value="">
+                                                <span>Delete</span>
+                                            </div>
+                                        </form>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+                </tr>
+            <?php } endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+
+
+    function editRule(role, site, type) {
+        // Construct the action URL based on the type and parameters
+        const actionUrl = (type === 'Customer')
+            ? `<?php echo $customer2fa; ?>type/${encodeURIComponent(type)}/role/${encodeURIComponent(role)}/site/${encodeURIComponent(site)}`
+            : `<?php echo $admin2fa; ?>type/${encodeURIComponent(type)}/role/${encodeURIComponent(role)}`;
+
+        // Redirect to the constructed URL
+        window.location.href = actionUrl;
+    }
+
+
+    function deleteRule(role, site, type) {
+        const form = document.getElementById('saveSignInSettings');
+
+        // Set the correct option for the Customer2fa controller
+        const optionInput = document.createElement('input');
+        optionInput.type = 'hidden';
+        optionInput.name = 'option';
+        optionInput.value = 'delete_existing_rule';
+        form.appendChild(optionInput);
+
+        // Create hidden inputs to pass role and type information
+        const deleteRoleInput = document.createElement('input');
+        const adminUser = "<?php echo $currentAdminUser; ?>";
+        deleteRoleInput.type = 'hidden';
+        deleteRoleInput.name = type === 'Customer' ? 'delete_role_customer' : 'delete_role_admin';
+        deleteRoleInput.value = role;
+        form.appendChild(deleteRoleInput);
+        
+        // Set the site parameter
+        const deleteSiteInput = document.createElement('input');
+        deleteSiteInput.type = 'hidden';
+        deleteSiteInput.name = 'delete_role_site';
+        deleteSiteInput.value = site;
+        form.appendChild(deleteSiteInput);
+
+        // Retrieve and parse the rules input
+        const rulesInput = document.getElementById('ruleid');
+        let rules = getRulesByType(type);
+        if (type === 'Customer') {
+            // Filter out rules matching the given role and site
+            rules = rules.filter(rule => !(rule.group === role && rule.site === site));
+        } else {
+            // Filter out rules matching the given role (Admin rules)
+            rules = rules.filter(rule => !(rule.role === role && rule.admin === adminUser));
+        }
+
+        // Update the rules input with the filtered rules
+        rulesInput.value = JSON.stringify(rules);
+
+        // Update the rules input with the filtered rules
+
+
+        // Set the role and site values appropriately
+        const deleteRoleInputField = document.getElementById('delete_role');
+        const deleteRoleSiteInputField = document.getElementById('delete_role_site');
+
+        if (type === 'Customer') {
+            deleteRoleInputField.value = role;
+            deleteRoleSiteInputField.value = site;
+        } else {
+            deleteRoleInputField.value = role;
+            deleteRoleSiteInputField.value = ''; // No site value for admin
+        }
+
+        console.log("Updated Rules:", rulesInput.value);
+
+        // Submit the form
+        form.submit();
+    }
+
+    // Function to retrieve the correct rules based on customer or admin type
+    function getRulesByType(type) {
+        if (type === 'Customer') {
+            return <?= json_encode($customerRules) ?>;
+        } else {
+            return <?= json_encode($adminRules) ?>;
+        }
+    }
+
+
+    // Function to toggle options box visibility
+    function toggleOptions(button, rule) {
+        // Close any other open options boxes
+        document.querySelectorAll('.options-box').forEach(box => {
+            if (box !== button.nextElementSibling) {
+                box.classList.add('hidden');
+            }
+        });
+
+        // Toggle the current options box
+        const optionsBox = button.nextElementSibling;
+        optionsBox.classList.toggle('hidden');
+    }
+
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('.relative')) {
+            document.querySelectorAll('.options-box').forEach(box => {
+                box.classList.add('hidden');
+            });
+        }
+    });
+
+</script>

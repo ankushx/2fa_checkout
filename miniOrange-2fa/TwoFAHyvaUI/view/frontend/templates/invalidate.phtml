@@ -1,0 +1,49 @@
+<?php
+$objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+$customerSession = $objectManager->create('Magento\Customer\Model\Session');
+
+$fullname = ''; // Initialize to avoid undefined variable error
+$fname = '';
+
+if ($customerSession->isLoggedIn()) {
+    $fullname = $customerSession->getCustomer()->getName();
+    $fname = $customerSession->getCustomer()->getFirstname();
+}
+?>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        if (window.customerData === undefined) {
+            fetch('/customer/section/load/?sections=customer,compare-products,last-ordered-items,cart')
+                .then(response => response.json())
+                .then(data => {
+                    window.customerData = data;
+                });
+        }
+
+        function mo_invalidate(fullname, firstname) {
+            let greetElement = document.querySelector('.greet.welcome');
+            let customerNameElement = document.querySelector('.customer-name span');
+
+            if (greetElement) {
+                greetElement.innerHTML = `<span>Welcome, ${firstname}!</span>`;
+            }
+            if (customerNameElement) {
+                customerNameElement.innerHTML = fullname;
+            }
+        }
+
+        window.addEventListener("load", function () {
+            let delay = 0;
+            let fullname = "<?php echo addslashes($fullname); ?>";
+            let fname = "<?php echo addslashes($fname); ?>";
+
+            while (delay < 5000) {
+                setTimeout(function () {
+                    mo_invalidate(fullname, fname);
+                }, delay);
+                delay += 100;
+            }
+        });
+    });
+</script>

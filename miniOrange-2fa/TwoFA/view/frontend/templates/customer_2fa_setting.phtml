@@ -1,0 +1,119 @@
+<?php
+
+$formKey = $this->getBlockHtml('formkey');
+$formPostUrl = $this->getBaseUrl() . "motwofa/customer";
+//$customer=$this->get_customer_detailss();
+$userdetails = $this->getUserDetailsforcustomerreset();
+
+function getConfiguredMethodLabel($configuredMethods)
+{
+    $mapping = [
+        'OOE' => 'OTP over Email',
+        'OOS' => 'OTP over SMS',
+        'OOW' => 'OTP over Whatsapp',
+        'GoogleAuthenticator' => 'Google Authenticator',
+        'MicrosoftAuthenticator' => 'Microsoft Authenticator',
+        'OOSE' => 'OTP over SMS + Email',
+        'User_skipTwofa' => 'User has skip 2fa'
+    ];
+
+    $methods = explode(',', $configuredMethods);
+    $labels = array_map(function ($method) use ($mapping) {
+        return $mapping[$method] ?? $method; // Return the label if found, or the original code
+    }, $methods);
+
+    return implode(', ', $labels);
+}
+
+$deviceInfo = [];
+
+if (!empty($userdetails[0]['device_info'])) {
+    $deviceInfo = json_decode($userdetails[0]['device_info'], true);
+}
+
+
+?>
+<html>
+<body>
+
+
+<?php if (isset($userdetails[0]['username'])) { ?>
+    <table>
+        <tr>
+            <th> Username
+            </th>
+            <td><?php print_r($userdetails[0]['username']); ?>
+            </td>
+        </tr>
+        <tr>
+            <th> Configured Method
+            </th>
+            <td>
+                <?php
+                if (isset($userdetails[0]['configured_methods'])) {
+                    echo getConfiguredMethodLabel($userdetails[0]['configured_methods']);
+                }
+                ?>
+            </td>
+        </tr>
+        <tr>
+            <th> Email
+            </th>
+            <td><?php print_r($userdetails[0]['email']); ?>
+            </td>
+        </tr>
+        <tr>
+            <th> Phone
+            </th>
+            <td><?php if (isset($userdetails[0]['phone']) && $userdetails[0]['phone'] != NULL) {
+                    print_r("+" . $userdetails[0]['countrycode'] . " " . $userdetails[0]['phone']);
+                } ?>
+            </td>
+        </tr>
+
+        <?php if (!empty($deviceInfo)) { ?>
+            <tr>
+                <th>Device Information</th>
+                <td>
+                    <?php foreach ($deviceInfo as $index => $device) { ?>
+                        <div style="margin-top:2rem;">
+                            <form method="post" action="<?php print_r($formPostUrl); ?>" style="margin-top: 5px;">
+                                <div>
+
+                                    <strong>User Browser:</strong> <?php echo isset($device['User_Browser']) ? $device['User_Browser'] : 'N/A'; ?><br>
+                                    <strong>User OS:</strong> <?php echo isset($device['User_OS']) ? $device['User_OS'] : 'N/A'; ?><br>
+                                    <strong>Device Type:</strong> <?php echo isset($device['Device_Type']) ? $device['Device_Type'] : 'N/A'; ?><br>
+                                    <strong>Configured Date:</strong> <?php echo isset($device['configured_date']) ? $device['configured_date'] : 'N/A'; ?><br>
+                                </div>
+                                <!-- <div>
+                                    
+                                        <?php echo $formKey; ?>
+                                        <input type="hidden" name="device_index" value="<?php echo $index; ?>">
+                                        <input type="submit" name="reset_device" value="Reset Device">
+                                </div> -->
+                            </form>
+                        </div>
+                    <?php } ?>
+                </td>
+            </tr>
+        <?php } ?>
+    </table>
+    <br>
+<?php } ?>
+<form method="post" action="<?php print_r($formPostUrl); ?>">
+    <?php print_r($formKey); ?>
+    <button type="submit" name="reset_twofa" value="reset_twofa" title="You need to logout to go through inline process"
+            class="action save primary">Reset Two Factor Authentication
+    </button>
+    <!-- <button type="submit" name="reset_kba" value="reset_kba" title="Reset KBA backup method" class="action save primary">Reset KBA Backup method </button> -->
+
+</form>
+
+</body>
+<style>
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+    }
+</style>
+</html>

@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
+    <route method="POST" url="/V1/mo2fa/headless/sendOtp">
+        <service class="MiniOrange\TwoFA\Api\HeadlessApiInterface" method="sendOtp"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route method="POST" url="/V1/mo2fa/headless/sendOtpApi">
+        <service class="MiniOrange\TwoFA\Api\HeadlessApiInterface" method="sendOtpApi"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route method="POST" url="/V1/mo2fa/headless/validateOtpApi">
+        <service class="MiniOrange\TwoFA\Api\HeadlessApiInterface" method="validateOtpApi"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route method="POST" url="/V1/mo2fa/headless/validateOtp">
+        <service class="MiniOrange\TwoFA\Api\HeadlessApiInterface" method="validateOtp"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route method="POST" url="/V1/mo2fa/headless/authenticateApi">
+        <service class="MiniOrange\TwoFA\Api\HeadlessApiInterface" method="authenticateApi"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route method="POST" url="/V1/mo2fa/headless/loginApi">
+        <service class="MiniOrange\TwoFA\Api\HeadlessApiInterface" method="loginApi"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route method="POST" url="/V1/mo2fa/headless/validateSMSOtpApi">
+        <service class="MiniOrange\TwoFA\Api\HeadlessApiInterface" method="validateSMSOtpApi"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+</routes>

@@ -1,0 +1,76 @@
+<?php
+
+// initialize all variables
+$twofasettings = $this->getExtensionPageUrl('twofasettings');
+$account = $this->getExtensionPageUrl('account');
+$signinsettings = $this->getExtensionPageUrl('signinsettings');
+$support = $this->getExtensionPageUrl('support');
+$pricing = $this->getExtensionPageUrl('upgrade');
+$customgateway = $this->getExtensionPageUrl('customgateway');
+$usermanagement = $this->getExtensionPageUrl('usermanagement');
+$customer2fa = $this->getExtensionPageUrl('customer2fa');
+$settings2fa = $this->getExtensionPageUrl('settings2fa');
+$admin2fa = $this->getExtensionPageUrl('admin2fa');
+$advance2fa = $this->getExtensionPageUrl('advance2fa');
+$ip = $this->getExtensionPageUrl('ip');
+$activeTab = $this->getCurrentActiveTab();
+$currentAdminRole = $this->getCurrentAdminUser()->getRole()->getRoleName();
+$ifSandboxTrialEnabled = $this->ifSandboxTrialEnabled() && $currentAdminRole =='TWOFA' ? "style='display:none'" : "style='display:block'";
+
+?>
+<div style=" padding: 0 1%;">
+    <?php
+            if($this->check_license_plan(4)){
+            $trial_days = $this->daysTillTrialExpiry();
+            $isExpired = $trial_days <= 0 || $this->isTrialExpired();
+            
+            $statusColor = $isExpired ? '#f44336' : '#eb5202';
+            $message = $isExpired ? 
+                'Your Trial account has expired. Please contact to magentosupport@xecurify.com' :
+                'Trial Version Active - Days Remaining: '.$trial_days;
+            echo '<div style="background-color: #f8f9fa; border-left: 4px solid '.$statusColor.'; padding: 16px; margin: 20px 14px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="color: '.$statusColor.'; font-size: 16.4px; font-weight: 700;">'.$message.'</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px;">';
+                
+            if($activeTab != 'account') {
+                echo '<a href="'.$account.'" style="text-decoration: none;">
+                    <button style="background-color: transparent; color: #eb5202; border: 1px solid #eb5202; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                        Activate License
+                    </button>
+                </a>';
+            }
+            if($activeTab != 'upgrade') {
+                echo '<button onclick="window.open(\'https://plugins.miniorange.com/magento-two-factor-authentication-2fa#pricing\', \'_blank\')" 
+                                style="background-color: #eb5202; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                            Upgrade Now
+                            <i class="fa fa-external-link" style="font-size: 12px;"></i>
+                        </button>';
+            }
+                    echo '</div>
+                </div>';
+            }
+        ?>
+
+    <div class="topnav" id="myTopnav">
+        <div <?= print_r($ifSandboxTrialEnabled); ?>>
+        <a class="nav-tab <?php ($activeTab == 'account') ? print_r('active') : print_r('') ?>" href="<?= $account ?> ">Account</a>
+        </div>
+        <a class="nav-tab <?php ($activeTab == 'settings2fa' || $activeTab == 'tfaadmincustomerbox' || $activeTab == 'tfasettingsconfigurationtable' || $activeTab == 'customer2fa' || $activeTab == 'admin2fa') ? print_r('active') : print_r('') ?>"
+           href=" <?= $settings2fa ?> ">2FA Settings</a>
+        <a class="nav-tab <?php ($activeTab == 'advance2fa') ? print_r('active') : print_r('') ?>"
+           href=" <?= $advance2fa ?> ">2FA Advance Settings</a>
+        <div <?= print_r($ifSandboxTrialEnabled); ?>>
+        <a class="nav-tab <?php ($activeTab == 'usermanagement') ? print_r('active') : print_r('') ?>"
+           href=" <?= $usermanagement ?>">User management</a>
+        </div>
+        <a class="nav-tab <?php ($activeTab == 'customgateway') ? print_r('active') : print_r('') ?>"
+           href=" <?= $customgateway ?>">Custom Gateway</a>
+        <a class="nav-tab <?php ($activeTab == 'upgrade') ? print_r('active') : print_r('') ?>"
+           href=" <?= $pricing ?> ">Upgrade</a>
+    </div>
+</div>
+

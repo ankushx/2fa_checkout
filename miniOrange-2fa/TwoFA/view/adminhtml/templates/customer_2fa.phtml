@@ -1,0 +1,724 @@
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<?php
+
+$currentUserStore = "";
+if($this->ifSandboxTrialEnabled())
+{
+    $currentUserStore = $this->getCurrentAdminUser()->getData('store_name');
+}
+// PHP Data Preparation Code (unchanged)
+$websites = $this->getWebsiteCollection();
+$selected_customer_role = $this->getAllGroups() ?: [];
+$existingRules = $this->get_customerexistingRules() ?: [];
+
+$formKey = $this->getBlockHtml('formkey');
+$customer_group = $this->getCustomerGroups();
+$selected_website = $this->getSelectedWebsite();
+$selected_customer_group = $this->getSelectedCustomerGroup();
+$create_account_first = ($this->checkaccountVerified()) ? '' : 'disabled';
+$pricing = $this->getExtensionPageUrl('upgrade');
+
+$account = $this->getExtensionPageUrl('account');
+$is_enterpriseplan_active = $this->check2fa_backend_plan() ? '' : 'disabled';
+
+$params = $this->getRequest()->getParams();
+
+
+$siteParam = isset($params['site']) ? $params['site'] : null;
+$groupParam = isset($params['role']) ? $params['role'] : null;
+
+
+// Initialize an empty array to store the selected methods
+$selectedMethods = array();
+
+// Check if site and group parameters are provided
+if ($siteParam && $groupParam) {
+    // Loop through the existing rules
+    foreach ($existingRules as &$rule) {
+        // Check if the current rule's site and group match the parameters
+        if ($rule['site'] === $siteParam && $rule['group'] === $groupParam) {
+            // Loop through the methods already present in that site+group
+            foreach ($rule['methods'] as $method) {
+                // Add each method to the selected methods array if it doesn't exist yet
+                // (You can modify the condition to suit your needs)
+                $methodExists = false;
+
+                // Assuming you are storing methods somewhere or doing something with them
+                foreach ($selectedMethods as $selectedMethod) {
+                    if ($selectedMethod['key'] === $method['key']) {
+                        $methodExists = true;
+                        break;
+                    }
+                }
+
+                // If the method does not exist in the selected methods, add it
+                if (!$methodExists) {
+                    $selectedMethods[] = $method;
+                }
+            }
+        }
+    }
+}
+
+
+$authMethods = [
+    'OOE' => ['label' => 'OTP over Email', 'icon' => 'fas fa-envelope', 'selected' => false],
+    'OOS' => ['label' => 'OTP over SMS', 'icon' => 'fas fa-sms', 'selected' => false],
+    'GoogleAuthenticator' => ['label' => 'Google Authenticator', 'icon' => 'fas fa-mobile-alt', 'selected' => false],
+    'MicrosoftAuthenticator' => ['label' => 'Microsoft Authenticator', 'icon' => 'fas fa-mobile-alt', 'selected' => false],
+    'OOSE' => ['label' => 'Email + SMS', 'icon' => 'fas fa-bell', 'selected' => false],
+    'OOW' => ['label' => 'WhatsApp', 'icon' => 'fab fa-whatsapp', 'selected' => false]
+];
+
+foreach ($selectedMethods as $selectedMethod) {
+    $key = $selectedMethod['key'];
+    if (isset($authMethods[$key])) {
+        $authMethods[$key]['selected'] = true;
+    }
+}
+
+$customer_registration_twofa = $this->get_customer_registration_twofa() ? 'checked' : '';
+$isEnabled = $this->isEnabled();
+$disabled = !$isEnabled ? "disabled" : "";
+
+if ($this->isTrialExpired()) {
+    $disabled = "disabled";
+}
+
+if ($this->check2fa_backend_plan() != '1') {
+    $disabled = "disabled";
+}
+
+?>
+
+<div class="p-6" style="width:70%;">
+
+    <?php if ($create_account_first == 'disabled') { ?>
+        <div class="error-msg" style="margin-bottom: 2rem;margin-top:2rem">
+            Please register and verify your account before trying to configure your settings. Go the <a
+                href="<?= $account ?> " style="font-weight:bold">Account</a> Section to complete your registration.
+        </div> <?php } ?>
+    <div class="bg-white rounded-lg shadow p-6" style="width: 100%;">
+
+
+        <h1 class="text-3xl font-bold mb-6 text-black" style="font-size: 2.5rem;">Two-Factor Authentication</h1>
+        <?php if ($disabled == 'disabled') { ?>  <span class="enterprise_feature"> <span
+                style="color:red;margin-left:10%"> *</span> <span style="color:black; font-weight:normal"> (Available in the <a
+                    href="<?php print_r($pricing); ?>" class="premium btn-link">2fa-frontend/backend</a> version)</span></span>
+        <?php } ?>
+        <p class="text-gray-600 mb-8" style="font-size: 1.5rem;padding-top:0.1rem">Configure 2FA for customers based on
+            their site and group preferences.</p>
+
+
+        <div class="mb-12 mb-8 p-4 border rounded-lg bg-gray-50" style="margin-top: 3rem;padding: 2.5rem;">
+
+
+            <div id="popup-alert"
+                 class="fixed inset-0 z-50 flex items-center justify-center hidden bg-black bg-opacity-50"
+                 style="z-index: 9999;">
+                <div class="bg-white rounded-lg shadow-lg" width="52rem">
+                    <div class="flex items-center justify-between border-b p-6">
+                        <h2 class="font-bold text-red" style="font-size:1.8rem">Alert</h2>
+                        <button
+                            class="text-gray-500 hover:text-gray-800" <?php print_r($disabled); ?>
+                            onclick="closePopup()"
+                            style="border:none;background-color:white">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="popup-message" class="p-4 text-gray-700">
+                        <!-- Alert message will appear here -->
+                    </div>
+                    <div class="px-4 py-2 text-right">
+                        <button
+                            class="text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600" <?php print_r($disabled); ?>
+                            style="background-color:#eb5202;border:none"
+                            onclick="closePopup()">
+                            Ok
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <?php if ($siteParam): ?>
+                <!-- Show the specific site only -->
+                <div class="relative">
+                    <label for="select_website" class="block text-sm font-medium text-gray-700 mb-2"
+                           style="font-size:1.6rem; padding-top: 1.4rem; padding-bottom: 1rem;">
+                        Selected Website
+                    </label>
+                    <div class="relative w-full">
+                        <select id="select_website" name="select_website" <?php print_r($disabled); ?>
+                                class="block w-full pl-12 pr-6 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                style="font-size:1.6rem" disabled>
+                            <option value="<?= $siteParam ?>" selected>
+                                <?= htmlspecialchars($siteParam); ?>
+                            </option>
+                        </select>
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i class="fas fa-globe" style="color:black"></i>
+                        </div>
+                    </div>
+                </div>
+            <?php else: ?>
+                <!-- Website Dropdown -->
+                <div class="relative">
+                    <label for="select_website" class="block text-sm font-medium text-gray-700 mb-2"
+                           style="font-size:1.6rem; padding-top: 1.4rem; padding-bottom: 1rem;">
+                        Select a Website
+                    </label>
+                    <div class="relative w-full">
+                        <select id="select_website" name="select_website" <?php print_r($disabled); ?>
+                                class="block w-full pl-12 pr-6 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                style="font-size:1.6rem">
+                            <?php if(empty($currentUserStore)){ ?>
+                            <option value="all">All Sites</option>
+                            <?php foreach ($websites as $specific_website): ?>
+                                <option value="<?= $specific_website->getId(); ?>">
+                                    <?= htmlspecialchars($specific_website->getName()); ?>
+                                </option>
+                            <?php endforeach; }else{ ?>
+                                <option value="<?= $currentUserStore; ?>">
+                                <?= htmlspecialchars($currentUserStore); ?>
+                                </option>
+                                <?php } ?>
+                        </select>
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i class="fas fa-globe" style="color:black"></i>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+            <br>
+
+            <!-- Customer Group Dropdown -->
+            <?php if ($groupParam): ?>
+                <!-- Show the specific group only -->
+                <div class="relative">
+                    <label for="twofa_customer_groups" class="block text-sm font-medium text-gray-700 mb-2"
+                           style="font-size:1.6rem; padding-top: 1.4rem; padding-bottom: 1rem;">
+                        Selected Customer Group
+                    </label>
+                    <div class="relative w-full">
+                        <select id="twofa_customer_groups" <?php print_r($disabled); ?>
+                                class="block w-full pl-12 pr-6 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                style="font-size:1.6rem" disabled>
+                            <option value="<?= htmlspecialchars($groupParam); ?>" selected>
+                                <?= htmlspecialchars($groupParam); ?>
+                            </option>
+                        </select>
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i class="fas fa-users" style="color:black"></i>
+                        </div>
+                    </div>
+                </div>
+            <?php else: ?>
+                <!-- Customer Group Dropdown -->
+                <div class="relative">
+                    <label for="twofa_customer_groups" class="block text-sm font-medium text-gray-700 mb-2"
+                           style="font-size:1.6rem; padding-top: 1.4rem; padding-bottom: 1rem;">
+                        Select a Customer Group
+                    </label>
+                    <div class="relative w-full">
+                        <select id="twofa_customer_groups" <?php print_r($disabled); ?>
+                                class="block w-full pl-12 pr-6 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                style="font-size:1.6rem">
+                            <option value="all">All Groups</option>
+                            <?php foreach ($selected_customer_role as $group): ?>
+                                <option value="<?= htmlspecialchars($group['label']); ?>">
+                                    <?= htmlspecialchars($group['label']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i class="fas fa-users" style="color:black"></i>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+
+            <br>
+            <!-- OTP Methods -->
+            <h4 class="text-lg font-medium mb-4" style="font-size:1.5rem;padding-top: 1rem;">Available Authentication
+                Methods</h4>
+            <div class="grid grid-cols-1 gap-4">
+                <?php foreach ($authMethods as $key => $method): ?>
+                    <div class="flex items-center justify-between p-4 bg-gray-100 border rounded-lg cursor-pointer"
+                         style="background-color: white;" onclick="toggleCheckbox(this)">
+                        <div class="flex items-center gap-3" style="font-size:1.6rem">
+                            <i class="<?= $method['icon'] ?> text-xl " style="color:black;font-size:1.6rem"></i>
+                            <span><?= htmlspecialchars($method['label']); ?></span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="otp-toggle peer sr-only" data-method="<?= $key ?>"
+                                   data-method-label="<?= $method['label'] ?>"
+                                   data-method-icon="<?= $method['icon'] ?>"
+                                <?= $method['selected'] ? 'checked' : ''; ?>
+                            >
+                            <span class="toggle-slider "></span>
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+            <!-- Rule Creation Form -->
+            <form id="saveSignInSettings_customer" method="post" action="">
+                <?php print_r($formKey); ?>
+                <input type="hidden" name="option" value="saveSingInSettings_customer">
+                <input type="hidden" name="rules" id="rulesInput">
+
+                <!-- 2FA Section at Registration -->
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6" style="margin-top: 2rem;">
+                    <h4 class="text-lg font-medium mb-4" style="font-size:1.5rem;padding-top: 1rem;">2FA During Registration</h4>
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span
+                            class="text-gray-700">Enable Two Factor Authentication During Customer Registration.</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <?php 
+                            if ($siteParam) {
+                                $registrationEnabled = $this->get_customer_registration_twofa() ? 1 : 0;
+                            } else {
+                                $registrationEnabled = 0;
+                            }
+                            ?>
+                            <input type="checkbox" name="customer_registration_inline" <?php print_r($disabled); ?>
+                                   class="peer sr-only" <?= $registrationEnabled ? 'checked' : ''; ?>>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <input type="hidden" name="registration_website" value="<?= $siteParam ?: 'all' ?>">
+
+                    <!-- Note -->
+                    <div id="noteSection" class="bg-white border border-yellow-600 text-yellow-300 rounded-lg p-4 my-8"
+                         style="color:black">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle  text-lg mr-2"></i>
+                            <p class="text-lg font-medium">Note</p>
+                        </div>
+                        <p class=" mt-2" style="font-size: 1.3rem;">
+                            Enabling this option will require customers to complete Two-Factor Authentication (2FA)
+                            during the registration process, ensuring they verify their identity before creating an
+                            account.
+                        </p>
+                    </div>
+                </div>
+
+                <?php if ($siteParam && $groupParam): ?>
+                    <input type="button" value="Update Rule" id="addRuleBtn" <?php print_r($disabled); ?>
+                           class="mt-8 px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700">
+                    </input>
+                <?php else: ?>
+                    <input type="button" value="Add Rule" id="addRuleBtn" <?php print_r($disabled); ?>
+                           class="mt-8 px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700">
+                    </input>
+                <?php endif; ?>
+
+
+        </div>
+        </form>
+
+        <!-- Existing Rules -->
+        <h3 class="text-xl font-semibold text-gray-800 mb-4" style="font-size:1.6rem;padding-bottom:1rem">Existing
+            Rules</h3>
+        <div id="existingRules" class="space-y-6"></div>
+
+        <!-- Save Settings -->
+        <!-- <input type="submit" value="Save Settings" id="saveSettingsBtn" class="mt-8 w-full px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700"> -->
+    </div>
+</div>
+
+<script>
+    const existingRulesContainer = document.getElementById("existingRules");
+    const addRuleBtn = document.getElementById("addRuleBtn");
+    const rulesInput = document.getElementById("rulesInput");
+    const form = document.getElementById("saveSignInSettings_customer");
+
+    let rules = <?= json_encode($existingRules) ?: '[]'; ?>;
+
+    if (!rules || !Array.isArray(rules)) {
+        rules = [];
+    }
+
+    let siteParam = "<?= $siteParam ?>";
+    let groupParam = "<?= $groupParam ?>";
+    let currentUserStore = "<?= $currentUserStore ?>";
+
+    // Function to render existing rules
+    const renderRules = () => {
+        let filteredRules;
+        if (siteParam && groupParam) {
+            filteredRules = rules;
+        } else {
+            filteredRules = currentUserStore === "" ? rules : rules.filter(rule => rule.site === currentUserStore);
+        }
+        
+        existingRulesContainer.innerHTML = filteredRules
+        .map((rule, index) => {
+            const methodsDisplay = rule.methods.map(method => `
+                <span class="inline-flex items-center px-4 py-2 text-sm" style="font-size:1.4rem; border-radius: 4px;color:black;background-color:#eeeeee">
+                    <i class="${method.icon} mr-2"></i>
+                    <span style="color: black;">${method.label}</span>
+                </span>
+            `).join('');
+
+            return `
+                <div class="p-5 border border-gray-200 rounded-lg">
+                    <div class="flex justify-between">
+                        <div>
+                            <h4 class="font-medium text-black">${rule.site} - ${rule.group}</h4>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                ${methodsDisplay}
+                            </div>
+                        </div>
+                        <input type="hidden" name="delete_role" value="${rule.group}">
+                        <input type="hidden" name="delete_role_site" value="${rule.site}">
+                        <input type="hidden" name="option" value="delete_existing_rule" >
+                        <div class="flex gap-4">
+                            <button
+                                class="text-red-500 hover:delete-btn cursor-pointer border-none bg-none delete-btn"   <?php print_r($disabled); ?>
+                                style="color:black; border:none;height:1.5rem;background-color:white"
+                                data-index="${index}"
+                                data-group="${rule.group.replace(/'/g, "\\'")}"
+                                data-site="${rule.site.replace(/'/g, "\\'")}"
+                                onclick="removeRule(${index}, '${rule.group.replace(/'/g, "\\'")}', '${rule.site.replace(/'/g, "\\'")}')"
+                                    aria-label="Delete rule">
+                                    <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    };
+
+    // Function to remove a rule
+    const removeRule = (index, group, site) => {
+        // Remove the rule from the array
+        rules.splice(index, 1);
+        renderRules(); // Re-render the rules list
+
+        // Update the hidden input with the updated rules
+        rulesInput.value = JSON.stringify(rules);
+
+        // Add the option parameter to know this is a delete operation
+        const optionInput = document.createElement('input');
+        optionInput.type = 'hidden';
+        optionInput.name = 'option';
+        optionInput.value = 'delete_existing_rule';
+        form.appendChild(optionInput);
+
+        // Add the role and site to the form for submission
+        const deleteRoleInput = document.createElement('input');
+        deleteRoleInput.type = 'hidden';
+        deleteRoleInput.name = 'delete_role';
+        deleteRoleInput.value = group;
+        form.appendChild(deleteRoleInput);
+
+        const deleteSiteInput = document.createElement('input');
+        deleteSiteInput.type = 'hidden';
+        deleteSiteInput.name = 'delete_role_site';
+        deleteSiteInput.value = site;
+        form.appendChild(deleteSiteInput);
+        
+        // Submit form automatically after removing a rule
+        form.submit();
+    };
+
+
+    // Function to toggle a checkbox when its parent div is clicked
+    const toggleCheckbox = (parentElement) => {
+        const checkbox = parentElement.querySelector(".otp-toggle");
+        checkbox.checked = !checkbox.checked;
+        parentElement.querySelector(".toggle-slider").classList.toggle("peer-checked");
+        // Remove highlight from all methods
+    };
+
+    // Update rules based on checkbox states
+    document.querySelectorAll(".otp-toggle").forEach((checkbox) => {
+        checkbox.addEventListener("change", (event) => {
+            const parent = event.target.closest(".flex");
+            const slider = parent.querySelector(".toggle-slider");
+
+            if (event.target.checked) {
+                slider.classList.add("peer-checked");
+                parent.classList.add('border-blue-500', 'shadow', 'bg-blue-50');
+            } else {
+                slider.classList.remove("peer-checked");
+                parent.classList.remove('border-blue-500', 'shadow', 'bg-blue-50');
+
+            }
+        });
+    });
+
+
+    // Function to check for conflicts and directly alert messages
+    const getConflictMessage = (newRule) => {
+        const newSite = newRule.site.trim();
+        const newGroup = newRule.group.trim();
+        const isUpdateMode = siteParam && groupParam;
+
+        console.log(newGroup, "-----1--", newSite, "----", rules.length);
+
+        // Check if "All Sites, here exclude for
+        if (newSite == "All Sites") {
+            if (rules.length > 0 && !isUpdateMode) {
+                showPopup(`"All Sites,${newGroup}" cannot be added when other rules already exist. Please clear all existing rules first.`);
+                return true; // Conflict found
+            }
+        }
+
+        console.log(newGroup, "----2---", newSite);
+
+        // Check if "All Groups" exists for the same site
+        if (newGroup == "All Groups") {
+            const conflictingRule = rules.find(rule => rule.site === newSite);
+            if (conflictingRule && !isUpdateMode) {
+                showPopup(`"All Groups" cannot be selected for ${newSite} when specific groups already exist. Please delete the conflicting rules.`);
+                return true; // Conflict found
+            }
+        }
+
+        console.log(newGroup, "----3---", newSite);
+
+        // Check if "All Sites" exists for the same group
+        if (newSite === "All Sites") {
+            const conflictingRule = rules.find(rule => rule.group === newGroup);
+            if (conflictingRule && !isUpdateMode) {
+                showPopup(`"All Sites, ${newGroup}" cannot be added when specific sites already exist for this group. Please delete the conflicting rules.`);
+                return true; // Conflict found
+            }
+        }
+
+        console.log(newGroup, "---4---", newSite);
+
+        // Check if a specific site and group rule already exists
+        const specificRuleExists = rules.find(rule => rule.site === newSite && rule.group === newGroup);
+        if (specificRuleExists && !isUpdateMode) {
+            showPopup(`A rule for ${newSite}, ${newGroup} already exists. Please delete it before adding a new one.`);
+            return true; // Conflict found
+        }
+
+        console.log(newGroup, "----5---", newSite);
+
+        // Check for conflicts between "All Sites" and specific site rules for the same group
+        if (newSite === "All Sites") {
+            const siteConflict = rules.find(rule => rule.site !== "All Sites" && rule.group === newGroup);
+            if (siteConflict && !isUpdateMode) {
+                showPopup(`"All Sites, ${newGroup}" cannot be selected when a specific site is already assigned to this group. Please clear the conflicting rule for ${siteConflict.site}, ${siteConflict.group}.`);
+                return true; // Conflict found
+            }
+        }
+
+        console.log(newGroup, "-----6--", newSite);
+
+        // Check for conflicts between "All Groups" and specific group rules for the same site
+        if (newGroup === "All Groups") {
+            const groupConflict = rules.find(rule => rule.site === newSite && rule.group !== "All Groups");
+            if (groupConflict && !isUpdateMode) {
+                showPopup(`${newSite}, "All Groups" cannot be selected when specific groups already exist. Please clear the conflicting rule for ${groupConflict.site}, ${groupConflict.group}.`);
+                return true; // Conflict found
+            }
+        }
+
+        console.log(newGroup, "----7---", newSite);
+
+        // Check for conflicts between "All Sites, All Groups" and any other specific rule
+        if (newSite === "All Sites" && newGroup == "All Groups") {
+            const anyConflict = rules.find(rule => rule.site !== "All Sites" || rule.group !== "All Groups");
+            if (anyConflict && !isUpdateMode) {
+                showPopup(`"All Sites, All Groups" cannot be added when specific site or group rules already exist. Please clear the conflicting rule for ${anyConflict.site}, ${anyConflict.group}.`);
+                return true; // Conflict found
+            }
+        }
+
+        console.log(newGroup, "---8----", newSite);
+
+        // Check if a rule for "All Sites, Any Group" conflicts with a specific site
+        if (newSite != "All Sites" && newGroup != "All Groups") {
+            const allSitesConflict = rules.find(rule => rule.site === "All Sites" && rule.group == newGroup);
+            if (allSitesConflict && !isUpdateMode) {
+                showPopup(`${newSite}, ${newGroup} cannot be added because "All Sites, ${newGroup}" already exists. Please delete the conflicting rule.`);
+                return true; // Conflict found
+            }
+        }
+
+
+        // Check if a rule for "Any Site, All Groups" conflicts with a specific group
+        const allGroupsConflict = rules.find(rule => rule.site == newSite && rule.group == "All Groups");
+        if (allGroupsConflict && !isUpdateMode) {
+            showPopup(`${newSite}, ${newGroup} cannot be added because "${newSite}, All Groups" already exists. Please delete the conflicting rule.`);
+            return true; // Conflict found
+        }
+
+        console.log(newGroup, "---10----", newSite);
+
+        return false; // No conflict
+    };
+
+    // Function to check if methods have changed
+    const haveMethodsChanged = (newMethods) => {
+        if (!siteParam || !groupParam) return true; // Not in edit mode
+        
+        // Find the existing rule for this site+group
+        const existingRule = rules.find(rule => 
+            rule.site === siteParam && rule.group === groupParam
+        );
+        
+        if (!existingRule) return true; // No existing rule
+        
+        // Check if methods are different
+        if (existingRule.methods.length !== newMethods.length) return true;
+        
+        // Check if any method keys are different
+        const existingKeys = existingRule.methods.map(m => m.key).sort();
+        const newKeys = newMethods.map(m => m.key).sort();
+        
+        return JSON.stringify(existingKeys) !== JSON.stringify(newKeys);
+    };
+
+    // Button click to add a new rule
+    addRuleBtn.addEventListener("click", (event) => {
+        // Get selected website and customer group values
+        const website = document.getElementById("select_website").value;
+        const group = document.getElementById("twofa_customer_groups").value;
+
+        // Collect selected OTP methods
+        const selectedMethods = Array.from(document.querySelectorAll(".otp-toggle:checked")).map((checkbox) => {
+            return {
+                key: checkbox.getAttribute("data-method"),
+                label: checkbox.getAttribute("data-method-label"),
+                icon: checkbox.getAttribute("data-method-icon")
+            };
+        });
+
+        if (!selectedMethods.length) {
+            showPopup(`Please select at least one authentication method.`);
+            event.preventDefault();
+            return;
+        }
+
+        // Get registration 2FA setting
+        const registrationEnabled = document.querySelector('input[name="customer_registration_inline"]').checked;
+        
+        const newRule = {
+            site: website === "all" ? "All Sites" : document.getElementById("select_website").options[document.getElementById("select_website").selectedIndex].textContent.trim(),
+            group: group === "all" ? "All Groups" : document.getElementById("twofa_customer_groups").options[document.getElementById("twofa_customer_groups").selectedIndex].textContent.trim(),
+            methods: selectedMethods,
+            registration_enabled: registrationEnabled ? 1 : 0
+        };
+
+        if (getConflictMessage(newRule)) {
+            event.preventDefault();
+            return;
+        }
+
+        if (siteParam && groupParam) {
+            // Only show alert if methods have changed
+            if (haveMethodsChanged(selectedMethods)) {
+                renderRules();
+                const updatedRules = [newRule];
+                rulesInput.value = JSON.stringify(updatedRules);
+                
+                // Store the form data for later submission after user confirms
+                window.pendingFormSubmission = {
+                    form: form,
+                    rules: updatedRules
+                };
+                
+                showPopup("Users with 2FA already set up will keep their current settings. To apply new 2FA methods to existing users, please reset their 2FA in User Management. Click OK to continue.");
+            } else {
+                // Methods haven't changed, submit directly
+                renderRules();
+                rulesInput.value = JSON.stringify([newRule]);
+                form.submit();
+            }
+        } else {
+            rules.push(newRule);
+            renderRules();
+            rulesInput.value = JSON.stringify(rules);
+
+            // Trigger form submission
+            form.submit();
+        }
+    });
+
+    // Ensure existing rules are preserved when form is submitted for registration updates
+    form.addEventListener('submit', function(e) {
+        // Only preserve existing rules if we're not in edit mode
+        if (!siteParam && !groupParam && rules && rules.length > 0) {
+            rulesInput.value = JSON.stringify(rules);
+        }
+    });
+
+
+    // Function to show the popup
+    function showPopup(message) {
+        const popup = document.getElementById("popup-alert");
+        const popupMessage = document.getElementById("popup-message");
+        popupMessage.innerText = message;
+        popup.classList.remove("hidden");
+    }
+
+    // Function to close the popup
+    function closePopup() {
+        const popup = document.getElementById("popup-alert");
+        popup.classList.add("hidden");
+        
+        // If there's a pending form submission, execute it now
+        if (window.pendingFormSubmission) {
+            const { form, rules } = window.pendingFormSubmission;
+            // Update the rules input with the latest data
+            document.getElementById("rulesInput").value = JSON.stringify(rules);
+            // Submit the form
+            form.submit();
+            // Clear the pending submission
+            window.pendingFormSubmission = null;
+        }
+    }
+
+    // Handle toggle switch for registration 2FA
+    document.addEventListener('DOMContentLoaded', function() {
+        const registrationToggle = document.querySelector('input[name="customer_registration_inline"]');
+        
+        if (registrationToggle) {
+            const shouldBeChecked = <?= $registrationEnabled ? 'true' : 'false' ?>;
+            registrationToggle.checked = shouldBeChecked;
+
+            const toggleSlider = registrationToggle.nextElementSibling;
+            if (toggleSlider && toggleSlider.classList.contains('toggle-slider')) {
+                if (shouldBeChecked) {
+                    toggleSlider.classList.add('peer-checked');
+                } else {
+                    toggleSlider.classList.remove('peer-checked');
+                }
+            }
+        }
+    });
+
+
+    // Render initial rules
+    renderRules();
+</script>
+
+
+<!--
+    when all group all site are already present and select again allsite.all grops or any sites any group, or any sites,all groups or all groups,any sites message should be
+    A rule for All aites,all groups already exists. Please delete it before adding a new one.(rewrite it)
+
+    when all group for some site are already present and select again all groups or any group within same sites message should be
+    A rule for All group already exists. Please delete it before adding a new one.
+
+    when some site ,some groups are already present and seltect the same site,same group or all site ,some group or some site all group or all sites,all group then message should before
+    "All sites,all groups" cannot be selected when specific group,sites are already assigned. Please clear the existing rules..(for all group,all sites)
+    "All sites,{selected grops}" cannot be selected when specific group,sites are already assigned. Please clear the existing rules..(sepecfic group,all sites)
+    "All group,{selected sites}" cannot be selected when {specific group,sites} are already assigned. Please clear the existing rules..(sepecfic sites,all grop)
+    "All group,{selected sites}" cannot be selected when {specific group,sites} are already assigned. Please clear the existing rules..(sepecfic sites,all grop)
+    A rule for this group,sites already exists. Please delete it before adding a new one.(for same group,sites)
+
+    when some group within all sites are already present and select same group or all groups
+    message should be
+    A rule for this group already exists. Please delete it before adding a new one.(for same group)
+    "All Groups" cannot be selected when specific group are already assigned within the site(site name). Please clear the existing rules..(for all group) -->

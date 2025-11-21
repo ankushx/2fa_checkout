@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Acl/etc/acl.xsd">
+    <!-- Defines the Access Control for the Settings and Modules -->
+    <acl>
+        <resources>
+            <!-- Magento Admin ACL -->
+            <resource id="Magento_Backend::admin">
+                <resource id="Magento_Backend::content">
+                    <!-- TwoFA Client ACL Settings Definition -->
+                    <resource id="MiniOrange_TwoFA::TwoFA" title="miniOrange 2FA Extension" sortOrder="55">
+                        <!-- Account Settings -->
+                        <resource id="MiniOrange_TwoFA::account_settings" title="Account" sortOrder="0"/>
+                        <!-- Sign In Settings ACL definition -->
+
+                        <!-- 2FA Settings -->
+                        <resource id="MiniOrange_TwoFA::settings_2fa" title="2FA Settings" sortOrder="1"/>
+                        <!-- Select Admin/Customer 2FA tab -->
+                        <resource id="MiniOrange_TwoFA::tfa_admin_customer_box" title="Select Admin/Customer 2FA" sortOrder="2"/>
+                        <!-- 2FA Settings Configuration table tab -->
+                        <resource id="MiniOrange_TwoFA::tfa_settings_configuration_table" title="2FA Settings Configuration Table" sortOrder="3"/>
+                        <!-- 2FA Admin/Customer Box -->
+                        <resource id="MiniOrange_TwoFA::2fa_admin_customer_box" title="2FA Admin/Customer Box tab" sortOrder="4"/>
+                        <!-- 2FA for Customers -->
+                        <resource id="MiniOrange_TwoFA::customer_2fa" title="2FA for Customers" sortOrder="5"/>
+                        <!-- 2FA for Admins -->
+                        <resource id="MiniOrange_TwoFA::admin_2fa" title="2FA For Admins" sortOrder="6"/>
+                        <!-- Advanced 2FA Settings -->
+                        <resource id="MiniOrange_TwoFA::advance_2fa" title="2FA Advanced Settings" sortOrder="7"/>
+                        <!-- user management -->
+                        <resource id="MiniOrange_TwoFA::user_management" title="User management" sortOrder="8"/>
+                        <!-- Custom gateway -->
+                        <resource id="MiniOrange_TwoFA::custom_gateway" title="Custom Gateway" sortOrder="9"/>
+                        <!-- Support -->
+                        <resource id="MiniOrange_TwoFA::support" title="Support" sortOrder="10"/>
+                        <!-- upgrade tab -->
+                        <resource id="MiniOrange_TwoFA::upgrade" title="Upgrade Section" sortOrder="11"/>
+                        <!-- ip tab -->
+                    </resource>
+                </resource>
+            </resource>
+        </resources>
+    </acl>
+</config>

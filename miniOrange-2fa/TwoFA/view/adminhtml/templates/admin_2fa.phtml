@@ -1,0 +1,466 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<?php
+
+$roles = $this->getAllRoles(); // Fetch roles dynamically
+
+$existingRules = $this->get_existingRules();
+$baseurl = $this->getBaseUrl();
+$admin_name = $this->get_admin_append_name();
+$customer_key = $this->getCustomerKey();
+
+$backdoor_login_url = $baseurl . $admin_name . "/?&backdoor=" . ($customer_key ? $customer_key : "true");
+$formKey = $this->getBlockHtml('formkey'); // Security form key
+
+$create_account_first = ($this->checkaccountVerified()) ? '' : 'disabled';
+$pricing = $this->getExtensionPageUrl('upgrade');
+$account = $this->getExtensionPageUrl('account');
+
+$params = $this->getRequest()->getParams();
+
+// Get the role parameter from the URL
+$groupParam = isset($params['role']) ? $params['role'] : null;
+$isSandboxTrialEnabled = $this->ifSandboxTrialEnabled();
+
+$currentAdminUser = $this->getCurrentAdminUser()->getUsername();
+$currentAdminRole = $this->getCurrentAdminUser()->getRole()->getRoleName();
+
+// Initialize an empty array to store the selected methods
+$selectedMethods = array();
+// Check if site and group parameters are provided
+if ($groupParam) {
+    // Loop through the existing rules
+    foreach ($existingRules as &$rule) {
+        // Check if the current rule's role matches the parameters
+        if ((!$isSandboxTrialEnabled && $rule['role'] === $groupParam) || ($isSandboxTrialEnabled && $rule['role'] === $groupParam && $rule['admin'] === $currentAdminUser)) {
+            // Loop through the methods already present in that role
+            foreach ($rule['methods'] as $method) {
+                // Add each method to the selected methods array if it doesn't exist yet
+                $methodExists = false;
+
+                // Assuming method is the unique identifier here (from your data structure)
+                foreach ($selectedMethods as $selectedMethod) {
+                    if ($selectedMethod['method'] == $method['method']) {
+                        $methodExists = true;
+                        break;
+                    }
+                }
+
+                // If the method does not exist in the selected methods, add it
+                if (!$methodExists) {
+                    $selectedMethods[] = $method;
+                }
+            }
+        }
+    }
+}
+
+$authMethods = [
+    'OOE' => ['label' => 'OTP over Email', 'icon' => 'fas fa-envelope', 'selected' => false],
+    'OOS' => ['label' => 'OTP over SMS', 'icon' => 'fas fa-sms', 'selected' => false],
+    'GoogleAuthenticator' => ['label' => 'Google Authenticator', 'icon' => 'fas fa-mobile-alt', 'selected' => false],
+    'MicrosoftAuthenticator' => ['label' => 'Microsoft Authenticator', 'icon' => 'fas fa-mobile-alt', 'selected' => false],
+    'OOSE' => ['label' => 'Email + SMS', 'icon' => 'fas fa-bell', 'selected' => false],
+    'OOW' => ['label' => 'WhatsApp', 'icon' => 'fab fa-whatsapp', 'selected' => false]
+];
+
+foreach ($selectedMethods as $selectedMethod) {
+    $key = $selectedMethod['method'];
+    if (isset($authMethods[$key])) {
+        $authMethods[$key]['selected'] = true;
+    }
+}
+
+$isEnabled = $this->isEnabled();
+$disabled = !$isEnabled ? "disabled" : "";
+
+if ($this->isTrialExpired()) {
+    $disabled = "disabled";
+}
+
+if ($this->check2fa_backendPlan() != '1') {
+    $disabled = "disabled";
+}
+
+?>
+
+<script>
+    const currentAdminUser = "<?php echo $currentAdminUser; ?>";
+    const isSandBoxTrialEnabled = "<?php echo json_encode($isSandboxTrialEnabled); ?>";
+</script>
+
+
+<div class="p-6" style="width:70%;">
+
+    <?php if ($create_account_first == 'disabled') { ?>
+        <div class="error-msg" style="margin-bottom: 2rem;margin-top:2rem">
+            Please register and verify your account before trying to configure your settings. Go the <a
+                href="<?= $account ?> " style="font-weight:bold">Account</a> Section to complete your registration.
+        </div> <?php } ?>
+    <div class="bg-white rounded-lg shadow p-6" style="width: 100%;">
+        <h1 class="text-3xl font-bold mb-6 text-black" style="font-size: 2.5rem;padding-top:1rem">Two-Factor
+            Authentication</h1>
+        <?php if ($disabled == 'disabled') { ?>  <span class="enterprise_feature"> <span
+                style="color:red;margin-left:10%"> *</span> <span style="color:black; font-weight:normal"> (Available in the <a
+                    href="<?php print_r($pricing); ?>"
+                    class="premium btn-link">2fa-backend</a> version)</span></span></span>
+        <?php } ?>
+        <p class="text-gray-600 mb-8" style="font-size: 1.7rem;padding-top:0.1rem">Configure 2FA for Admins based on
+            their roles preferences.</p>
+
+
+        <div id="popup-alert" class="fixed inset-0 z-50 flex items-center justify-center hidden bg-black bg-opacity-50"
+             style="z-index: 9999;">
+            <div class="bg-white rounded-lg shadow-lg" width="52rem">
+                <div class="flex items-center justify-between border-b p-6">
+                    <h2 class="font-bold text-red" style="font-size:1.8rem">Alert</h2>
+                    <button <?php print_r($disabled); ?>
+                        class="text-gray-500 hover:text-gray-800"
+                        onclick="closePopup()"
+                        style="border:none;background-color:white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="popup-message" class="p-4 text-gray-700">
+                    <!-- Alert message will appear here -->
+                </div>
+                <div class="px-4 py-2 text-right">
+                    <button
+                        class="text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                        style="background-color:#eb5202;border:none"
+                        onclick="closePopup()">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rule Creation -->
+        <div class="mb-12 mb-8 p-4 border rounded-lg bg-gray-50" style="margin-top: 3rem;padding: 2.5rem;">
+            <h3 class="text-lg font-bold mb-4" style="font-size:1.7rem;">Create New Rule</h3>
+
+            <!-- Role Dropdown -->
+            <div class="relative">
+                <label for="twofa_admin_roles" class="block text-sm font-medium text-gray-700 mb-2"
+                       style="font-size:1.6rem; padding-top: 1.4rem; padding-bottom: 1rem;">
+                    Select a Role
+                </label>
+                <div class="relative w-full">
+                    <?php if ($groupParam): ?>
+
+                        <select id="twofa_admin_roles" <?php print_r($disabled); ?>
+                                class="block w-full pl-12 pr-6 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 "
+                                style="font-size:1.6rem" disabled>
+                            <option value="<?= htmlspecialchars($groupParam); ?>" selected>
+                                <?= htmlspecialchars($groupParam); ?>
+                            </option>
+                        </select>
+                    <?php else: ?>
+                        <select id="twofa_admin_roles" <?php print_r($disabled); ?>
+                                class="block w-full pl-12 pr-6 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 "
+                                style="font-size:1.6rem">
+                            <?php if(!$isSandboxTrialEnabled || $currentAdminRole == "Administrators"){ ?>
+                            <option value="All Roles">All roles</option>
+                            <?php foreach ($roles as $role): ?>
+                                <option value="<?= $role['label']; ?>">
+                                    <?= htmlspecialchars($role['label']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <?php }else { ?>
+                            <option value="TWOFA">TWOFA</option>
+                    <?php    } ?>
+                        </select>
+                    <?php endif; ?>
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <i class="fas fa-users" style="color:black"></i>
+                    </div>
+                </div>
+            </div>
+            <br>
+
+            <div class="mt-8 p-6 bg-white-50 border-l-4 border-yellow-400 shadow rounded-lg">
+                <h3 class="font-semibold mb-4" style="color:#eb5202">
+                    Note down this backdoor login URL:
+                </h3>
+
+                <div class="flex items-center relative">
+                    <!-- "Copied!" message displayed above the copy button -->
+                    <span id="copyMessage"
+                          class="text-green-600 mb-2 hidden absolute top-[-30px] left-0 right-0 text-center"
+                          style="left: 90%;top:-90%;background-color:#eb5202;color:white;border-radius:0.5rem;padding:0.3rem;font-size:1.4rem">Copied!</span>
+
+                    <input
+                        class="backdoor w-full p-3 text-gray-700 border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-yellow-300 cursor-not-allowed"
+                        value="<?php echo htmlspecialchars($backdoor_login_url, ENT_QUOTES, 'UTF-8'); ?>"
+                        style="width:92%"
+                        disabled
+                    >
+
+                    <button <?php print_r($disabled); ?>
+                        class="ml-4 px-4 py-2 text-white font-semibold rounded-lg hover:bg-gray-50 focus:ring focus:ring-yellow-300 flex items-center"
+                        onclick="copyBackdoorUrl()"
+
+                        style="width: 4rem; height: 4rem; display: flex; justify-content: center; background-color:#eb5202; border:none"
+                    >
+                        <i class="fa fa-copy"></i>
+                    </button>
+                </div>
+
+                <p class="text-gray-600 mt-4" style="font-size:1.5rem">
+                    This URL allows you to access the admin panel using Magento credentials in case of lockout.
+                    <br>
+                </p>
+            </div>
+
+
+            <!-- OTP Methods -->
+            <h4 class="text-lg font-medium mb-4" style="font-size:1.5rem;padding-top: 1rem;">Available Authentication
+                Methods</h4>
+            <div class="grid grid-cols-1 gap-4">
+                <?php foreach ($authMethods as $key => $method): ?>
+                    <div class="flex items-center justify-between p-4 bg-gray-100 border rounded-lg cursor-pointer"
+                         style="background-color: white;" onclick="toggleCheckbox(this)">
+                        <div class="flex items-center gap-3" style="font-size:1.6rem">
+                            <i class="<?= $method['icon'] ?> text-xl " style="color:black;font-size:1.6rem"></i>
+                            <span><?= htmlspecialchars($method['label']); ?></span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="otp-toggle peer sr-only" data-method="<?= $key ?>"
+                                   data-method-label="<?= $method['label'] ?>"
+                                <?= $method['selected'] ? 'checked' : ''; ?>
+                            >
+                            <span class="toggle-slider "></span>
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+
+            <form id="saveSignInSettings_admin" method="post" action="">
+                <?php print_r($formKey); ?>
+                <!-- Rule Creation Form -->
+                <input type="hidden" name="option" value="saveSignInSettings_admin">
+                <input type="hidden" name="rules" id="rulesInput">
+                <input type="submit" value="<?= $groupParam ? 'Update Rule' : 'Add Rule' ?>" id="addRuleBtn" <?php print_r($disabled); ?>
+                       class="mt-8 px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700">
+        </div>
+        </form>
+
+
+        <!-- Existing Rules -->
+        <h3 class="text-xl font-semibold text-gray-800 mb-4" style="font-size:1.6rem;padding-bottom:1rem">Existing
+            Rules</h3>
+        <div id="existingRules" class="space-y-6"></div>
+    </div>
+</div>
+
+<script>
+    const existingRulesContainer = document.getElementById('existingRules');
+    const addRuleBtn = document.getElementById('addRuleBtn');
+    const rulesInput = document.getElementById('rulesInput');
+    const form = document.getElementById('saveSignInSettings_admin');
+    const roleSelect = document.getElementById('twofa_admin_roles');
+    const role = document.getElementById('twofa_admin_roles').value;
+
+    let groupParam = "<?= $groupParam ?>";
+
+    const toggles = document.querySelectorAll('.otp-toggle');
+
+    let rules = <?= json_encode($existingRules); ?>;
+
+    // Function to toggle the selection of OTP methods
+    const toggleCheckbox = (container) => {
+        const checkbox = container.querySelector('.otp-toggle');
+        checkbox.checked = !checkbox.checked;
+    };
+
+
+    // Function to show the popup
+    function showPopup(message) {
+        const popup = document.getElementById("popup-alert");
+        const popupMessage = document.getElementById("popup-message");
+        popupMessage.innerText = message;
+        popup.classList.remove("hidden");
+    }
+
+    // Function to close the popup
+    function closePopup() {
+        const popup = document.getElementById("popup-alert");
+        popup.classList.add("hidden");
+    }
+
+    // Function to add a new rule
+    // Helper functions
+    const isRoleAndMethodsSelected = (selectedRole, selectedMethods) => {
+        if (!selectedRole || selectedMethods.length === 0) {
+            showPopup("Please select at least one authentication method.");
+            return false;
+        }
+        return true;
+    };
+
+    const hasRoleConflict = (selectedRole, rules) => {
+        if (selectedRole === 'All Roles') {
+            if (rules.some(rule => rule.role !== 'All Roles')) {
+                showPopup('"All Roles" cannot be selected when specific roles are already assigned. Please clear the existing rules.');
+                return true;
+            }
+        } else {
+            if (rules.some(rule => rule.role === 'All Roles')) {
+                showPopup('Specific roles cannot be selected when "All Roles" is already assigned. Please clear the "All Roles" rule first.');
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const isDuplicateRole = (selectedRole, rules) => {
+        if(isSandBoxTrialEnabled == "true")
+        {
+            if (rules.some(rule => (rule.role === selectedRole && rule.admin === currentAdminUser))) {
+            showPopup('A rule for this role already exists. Please delete it before adding a new one.');
+            return true;
+        }
+        }
+        else
+        {
+            if (rules.some(rule => rule.role === selectedRole)) {
+            showPopup('A rule for this role already exists. Please delete it before adding a new one.');
+            return true;
+        }
+        }
+        return false;
+    };
+
+    // Function to render existing rules
+    const renderRules = () => {
+
+        const filteredRules = rules.filter(rule => rule.admin === currentAdminUser);
+
+        existingRulesContainer.innerHTML = filteredRules.map((rule, index) => {
+            const methodsDisplay = rule.methods.map(method => `
+            <span class="inline-flex items-center px-4 py-2 text-sm" style="font-size:1.4rem; border-radius: 4px; color:black; background-color:#eeeeee">
+                <i class="${method.icon} mr-2"></i>
+                <span style="color: black;">${method.label}</span>
+            </span>
+        `).join('');
+
+            return `
+            <div class="existing-rule">
+                <div>
+                    <h4 class="font-medium text-black">${rule.role}</h4>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        ${methodsDisplay}
+                    </div>
+                </div>
+                <input type="hidden" name="delete_role" value="${rule.role}">
+                <input type="hidden" name="option" value="delete_existing_rule" >
+                <div class="flex gap-4">
+                    <button class="text-red-500 hover:delete-btn cursor-pointer border-none bg-none delete-btn"  <?php print_r($disabled); ?>
+                    style="color:black; border:none;background-color:white" data-index="${index}" data-role="${rule.role}" onclick="removeRule(${index}, '${rule.role}')">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        }).join('');
+    };
+
+    // Function to remove a rule
+    const removeRule = (index, role) => {
+        // Remove the rule from the list
+        rules.splice(index, 1);
+        renderRules();
+
+        // Update the hidden input with the updated rules
+        rulesInput.value = JSON.stringify(rules);
+
+        // Add the role name to the form for submission
+        const deleteRoleInput = document.createElement('input');
+        deleteRoleInput.type = 'hidden';
+        deleteRoleInput.name = 'delete_role';
+        deleteRoleInput.value = role;
+        form.appendChild(deleteRoleInput);
+
+        // Submit form automatically after removing a rule
+        form.submit();
+    };
+
+
+    function copyBackdoorUrl() {
+        // Get the input element containing the URL
+        const copyText = document.querySelector('.backdoor');
+
+        // Check if the Clipboard API is supported
+        if (navigator.clipboard && copyText) {
+            // Copy the text to the clipboard
+            navigator.clipboard.writeText(copyText.value || copyText.innerText)
+                .then(() => {
+                    // Show the "Copied!" message
+                    const copyMessage = document.getElementById('copyMessage');
+                    copyMessage.classList.remove('hidden');
+
+                    // Hide the "Copied!" message after 2 seconds
+                    setTimeout(() => {
+                        copyMessage.classList.add('hidden');
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy: ', err);
+                });
+        } else {
+            console.error('Clipboard API not supported or no text found to copy.');
+        }
+    }
+
+
+    // Event handler
+    addRuleBtn.addEventListener('click', (event) => {
+        const selectedRole = roleSelect.value;
+        const selectedMethods = Array.from(toggles)
+            .filter(toggle => toggle.checked)
+            .map(toggle => ({
+                method: toggle.getAttribute('data-method'),
+                label: toggle.getAttribute('data-method-label'),
+                icon: toggle.closest('.flex').querySelector('i').classList.value,
+            }));
+
+
+        if (groupParam) {
+
+            renderRules();
+
+            const newRule = {role: selectedRole, methods: selectedMethods, admin: currentAdminUser};
+
+            rules = rules.filter(rule => !(rule.role === groupParam));
+            console.log(JSON.stringify(rules));
+
+            rules.push(newRule);
+            rulesInput.value = JSON.stringify(rules);
+
+            console.log(rulesInput.value);
+            
+            showPopup('Users with 2FA already set up will keep their current settings. To apply new 2FA methods to existing users, please reset their 2FA in User Management.');
+            form.submit();
+
+        } else {
+            // Validation checks
+            if (
+                !isRoleAndMethodsSelected(selectedRole, selectedMethods) ||
+                hasRoleConflict(selectedRole, rules) ||
+                (isDuplicateRole(selectedRole, rules))
+            ) {
+                event.preventDefault(); // Prevents form submission
+                return;
+            }
+            // Add new rule
+            const newRule = {role: selectedRole, methods: selectedMethods, admin: currentAdminUser};
+            rules.push(newRule);
+            rulesInput.value = JSON.stringify(rules);
+            renderRules();
+            form.submit(); // Submits the form if all checks pass
+        }
+    });
+
+    // Initial rendering of existing rules
+    renderRules();
+</script>

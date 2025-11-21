@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<csp_whitelist xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Csp:etc/csp_whitelist.xsd">
+    <policies>
+        <policy id="script-src">
+            <values>
+                <value id="googleapis" type="host">*.googleapis.com</value>
+                <value id="google" type="host">*.google.com</value>
+                <value id="google-analytics" type="host">*.google-analytics.com</value>
+                <value id="googletagmanager" type="host">www.googletagmanager.com</value>
+                <value id="googleadservices" type="host">www.googleadservices.com</value>
+                <value id="googleads-doubleclick" type="host">googleads.g.doubleclick.net</value>
+                <value id="analytics-google" type="host">analytics.google.com</value>
+                <value id="gstatic" type="host">*.gstatic.com</value>
+                <value id="gstatic-recaptcha" type="host">https://www.gstatic.com/recaptcha/</value>
+                <value id="google-recaptcha" type="host">https://www.google.com/recaptcha/</value>
+                <value id="adobe-dtm" type="host">assets.adobedtm.com</value>
+                <value id="adobe" type="host">*.adobe.com</value>
+                <value id="cardinalcommerce-geostag" type="host">geostag.cardinalcommerce.com</value>
+                <value id="cardinalcommerce-1eafstag" type="host">1eafstag.cardinalcommerce.com</value>
+                <value id="cardinalcommerce-geoapi" type="host">geoapi.cardinalcommerce.com</value>
+                <value id="cardinalcommerce-1eafapi" type="host">1eafapi.cardinalcommerce.com</value>
+                <value id="cardinalcommerce-songbird" type="host">songbird.cardinalcommerce.com</value>
+                <value id="cardinalcommerce-songbirdstag" type="host">songbirdstag.cardinalcommerce.com</value>
+                <value id="cardinalcommerce-includestest" type="host">includestest.ccdc02.com</value>
+                <value id="newrelic" type="host">*.newrelic.com</value>
+                <value id="nr-data" type="host">*.nr-data.net</value>
+                <value id="commerce-payment-services" type="host">*.commerce-payment-services.com</value>
+                <value id="paypal" type="host">*.paypal.com</value>
+                <value id="paypal-www" type="host">www.paypal.com</value>
+                <value id="paypal-sandbox" type="host">www.sandbox.paypal.com</value>
+                <value id="paypalobjects" type="host">www.paypalobjects.com</value>
+                <value id="paypal-t" type="host">t.paypal.com</value>
+                <value id="paypal-c" type="host">c.paypal.com</value>
+                <value id="ytimg" type="host">s.ytimg.com</value>
+                <value id="vimeo" type="host">*.vimeo.com</value>
+                <value id="vimeocdn" type="host">*.vimeocdn.com</value>
+                <value id="youtube" type="host">*.youtube.com</value>
+                <value id="omtrdc" type="host">amcglobal.sc.omtrdc.net</value>
+                <value id="magento-ds" type="host">*.magento-ds.com</value>
+                <value id="typekit" type="host">*.typekit.net</value>
+                <value id="typekit-use" type="host">use.typekit.net</value>
+                <value id="cdn-apple" type="host">*.cdn-apple.com</value>
+                <value id="braintreegateway" type="host">*.braintreegateway.com</value>
+                <value id="braintreegateway-js" type="host">js.braintreegateway.com</value>
+                <value id="braintreegateway-assets" type="host">assets.braintreegateway.com</value>
+                <value id="braintreegateway-api" type="host">api.braintreegateway.com</value>
+                <value id="braintreegateway-api-sandbox" type="host">api.sandbox.braintreegateway.com</value>
+                <value id="braintreegateway-client-analytics" type="host">client-analytics.braintreegateway.com</value>
+                <value id="braintreegateway-client-analytics-sandbox" type="host">client-analytics.sandbox.braintreegateway.com</value>
+                <value id="pay-google" type="host">pay.google.com</value>
+                <value id="mollie" type="host">js.mollie.com</value>
+                <value id="code-jquery" type="host">code.jquery.com</value>
+                <value id="cdnjs-cloudflare" type="host">cdnjs.cloudflare.com</value>
+                <value id="inline-script-hash" type="hash" algorithm="sha256">EUXIGyW1jfp/WybjsSRrhjivYcsii4XnyCXwRkaUQTk=</value>
+            </values>
+        </policy>
+        <policy id="style-src">
+            <values>
+                <value id="cloudflare" type="host">*.cloudflare.com</value>
+                <value id="fontawesome" type="host">*.fontawesome.com</value>
+                <value id="googleapis" type="host">*.googleapis.com</value>
+                <value id="gstatic" type="host">*.gstatic.com</value>
+                <value id="cdnjs-cloudflare" type="host">cdnjs.cloudflare.com</value>
+            </values>
+        </policy>
+        <policy id="img-src">
+            <values>
+                <value id="data" type="host">data:</value>
+                <value id="google-analytics" type="host">*.google-analytics.com</value>
+                <value id="paypal" type="host">*.paypal.com</value>
+                <value id="vimeocdn" type="host">*.vimeocdn.com</value>
+            </values>
+        </policy>
+        <policy id="connect-src">
+            <values>
+                <value id="google-analytics" type="host">*.google-analytics.com</value>
+                <value id="paypal" type="host">*.paypal.com</value>
+            </values>
+        </policy>
+        <policy id="font-src">
+            <values>
+                <value id="cloudflare" type="host">*.cloudflare.com</value>
+                <value id="fontawesome" type="host">*.fontawesome.com</value>
+                <value id="googleapis" type="host">*.googleapis.com</value>
+                <value id="gstatic" type="host">*.gstatic.com</value>
+            </values>
+        </policy>
+        <policy id="frame-src">
+            <values>
+                <value id="google" type="host">*.google.com</value>
+                <value id="doubleclick" type="host">*.doubleclick.net</value>
+                <value id="paypal" type="host">*.paypal.com</value>
+            </values>
+        </policy>
+    </policies>
+</csp_whitelist>

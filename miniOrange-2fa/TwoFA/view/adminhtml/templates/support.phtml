@@ -1,0 +1,206 @@
+<style>
+
+    .mo-textarea, .mo-input[type='text'], .mo-input[type='password'], .mo-input[type='textarea'], .mo-input[type='url'], .mo-input[type='email'] {
+        -webkit-appearance: none;
+        outline: none !important;
+        box-shadow: none !important;
+        border: 2px solid;
+        border-radius: 0.375rem;
+        --tw-border-opacity: 1;
+        border-color: rgb(226 232 240 / var(--tw-border-opacity));
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+        transition-duration: 200ms;
+    }
+
+    .mo-input-label_support {
+        font-weight: 500;
+        position: absolute;
+        top: 0.135rem;
+        left: 1.75rem;
+        background-color: #fff;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        font-size: 12px;
+        color: #64748b;
+        transition: all 0.2s;
+        border-radius: 5px;
+    }
+
+
+    .mo-input::placeholder {
+        color: #9ca3af; /* Tailwind: text-gray-400 */
+        opacity: 1; /* Ensure placeholder text is fully visible */
+        font-size: 1.3rem;
+    }
+
+    textarea::placeholder {
+        color: #9ca3af; /* Tailwind: text-gray-400 */
+        opacity: 1; /* Ensure placeholder text is fully visible */
+    }
+
+
+    .flex {
+        display: flex;
+    }
+
+    .my-4 {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .my-6 {
+        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .p-2 {
+        padding: 0.5rem;
+    }
+
+    .h-28 {
+        height: 7rem; /* Tailwind: h-28 */
+    }
+
+    .w-full {
+        width: 100%; /* Tailwind: w-full */
+    }
+
+    .font-semibold {
+        font-weight: 600; /* Tailwind: font-semibold */
+    }
+
+    .bg-blue-500 {
+        background-color: #3b82f6; /* Tailwind: bg-blue-500 */
+    }
+
+    .text-white {
+        color: #fff; /* Tailwind: text-white */
+    }
+
+    .rounded-lg {
+        border-radius: 0.5rem; /* Tailwind: rounded-lg */
+    }
+
+    .py-2 {
+        padding-top: 0.5rem; /* Tailwind: py-2 */
+        padding-bottom: 0.5rem; /* Tailwind: py-2 */
+    }
+
+    .px-4 {
+        padding-left: 1rem; /* Tailwind: px-4 */
+        padding-right: 1rem; /* Tailwind: px-4 */
+    }
+
+    .bg-gray-50 {
+        background-color: #f9fafb; /* Tailwind: bg-gray-50 */
+    }
+
+    .font-bold {
+        font-weight: bold; /* Tailwind: font-bold */
+    }
+
+
+</style>
+
+<?php
+
+$formKey = $this->getBlockHtml('formkey');
+$supportUrl = $this->getUrl('motwofa/support/index');
+$enabledebuglog = $this->isDebugLogEnable() ? 'checked' : '';
+$isSandBoxTrialEnabled = $this->ifSandboxTrialEnabled();
+$show_debug_log_section = $isSandBoxTrialEnabled ? 'style="display:none"' : 'style="display:block"';
+
+
+echo '
+<div class="panel-heading">
+    <div class="pull-right">
+        <div class="page bg-gray-50 py-6 rounded-lg shadow" id="minisupport" style="margin-top:11px;width:100%">
+            <div class="mosp_table_layout">
+                <div class="p-2" style="font-weight:bold;margin-left:0rem;font-size:1.8rem;padding-left: 1.3rem;"> Contact Us</div>
+                <hr>
+                <div class="flex">
+                    <form name="submit_form" method="post" action="' . $supportUrl . '">
+                        ' . $formKey . '
+                        <h3 style="font-size:1.3rem;margin-left:1.5rem;margin-bottom:3rem;margin-top:2rem;font-weight:normal;">
+                            Need any help? Just send us a query so we can assist you.
+                        </h3>
+                        <input type="hidden" name="option" value="supportQuery">
+                        <div>
+                            <table>
+                                <tr class="my-4">
+                                    <td class="mo-input-wrapper group my-6">
+                                        <label class="mo-input-label_support">Email</label>
+                                        <input class="w-full mo-input border border-gray-300 rounded-lg p-2" id="query_email" type="email" name="email" value="" required placeholder="Enter your Email" >
+                                    </td>
+                                </tr>
+                                <tr class="my-4">
+                                    <td class="mo-input-wrapper group my-6">
+                                        <label class="mo-input-label_support">Phone</label>
+                                        <input id="query_phone" class="w-full mo-input border border-gray-300 rounded-lg p-2" type="text" name="phone" required title="Phone with country code eg. +1xxxxxxxxxx" placeholder="Phone with country code eg. +1xxxxxxxxxx" value="" pattern="[\+]?[0-9]{1,4}\s?[0-9]{10}" >
+                                    </td>
+                                </tr>
+                                <tr class="my-4">
+                                    <td class="mo-input-wrapper group my-6">
+                                        <textarea id="query" name="query"
+                                            class="resize-y h-28 w-full p-2 border border-gray-300 rounded-lg mo-input mo-input border border-gray-300"
+                                            style="height:100px;padding-left:1rem"
+                                            placeholder="Write your query here"></textarea>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <input type="submit" class="rounded-lg font-semibold bg-blue-500 text-white py-2 px-4"
+                               name="send_query" id="send_query" value="Submit Query" style="margin-left:3%;">
+                    </form>
+                </div>
+                <br>
+            </div>
+            <br>
+        </div>
+
+
+           <div ' . $show_debug_log_section . ' class="mosp_table_layout bg-gray-50 my-12 rounded-lg shadow">
+            <h3 class="p-6" style="font-size:1.8rem;font-weight:bold">Debug Logs</h3>
+            <hr>
+            <div class="bg-gray-50 py-5" style="display: flex;
+                                                flex-direction: column;
+                                                align-items: flex-start;
+                                                justify-content: center;padding-bottom:4rem">
+                <form id="enable_debug_log" class="ml-12" method="post" action=" ' . $supportUrl . ' ">
+                    ' . $formKey . '
+                    <input type="hidden" name="option" value="enable_debug_log">
+                    <br>
+                    <input type="checkbox" style="margin:0.5rem;" name="debug_log_on" ' . $enabledebuglog . ' value="true">Enable Debug Log
+                    <input type="button" class="btn-round font-semibold" name="enable_debug_log" onclick="document.getElementById(\'enable_debug_log\').submit();" value="Submit" style="width:110px; margin-left:30px">
+                </form>
+
+                    <form id="clear_download_logs" method="post" action=" ' . $supportUrl . ' ">
+                        ' . $formKey . '
+                        <input type="hidden" name="option" value="clear_download_logs">
+                    <div style="display: flex; justify-content: center; align-items: center; margin-top:2.5rem;margin-left:1.5rem; flex-direction: column;">
+                        <p style="margin: 0; text-align: center; font-size: 1.3rem;">
+                            The error logs will be cleared automatically on a weekly basis.
+                        </p>
+                        <div style="width: 100%; text-align: center;"> <!-- Adjust div styles here -->
+                            <!-- Add content inside the div -->
+                        </div>
+                        </div>
+
+                            <br>
+                            <input type="submit" class="btn-round font-semibold" name="download_logs" value="Download Logs" style="width:150px; margin-left:10px">
+                            <input type="submit" class="btn-round font-semibold" name="clear_logs" value="Clear Logs" style="width:150px; margin-left:10px">
+                        </div>
+                    </form>
+            </div>
+            <br>
+        </div>
+    </div>
+
+
+
+
+';
+?>

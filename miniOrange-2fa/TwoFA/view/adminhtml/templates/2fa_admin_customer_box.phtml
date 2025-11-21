@@ -1,0 +1,321 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+<style>
+    .toggle-slider {
+        position: relative;
+        width: 4.5rem;
+        height: 2.3rem;
+        background-color: #e5e7eb;
+        border-radius: 9999px;
+        transition: background-color 0.3s ease-in-out;
+    }
+
+    .peer:checked + .toggle-slider {
+        background-color: #eb5202;
+    }
+
+    .toggle-slider::after {
+        content: '';
+        position: absolute;
+        top: 5px;
+        left: 0.8rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        background-color: white;
+        /* border: 2px solid #d1d5db; */
+        border-radius: 9999px;
+        transition: transform 0.3s ease-in-out;
+    }
+
+    .peer:checked + .toggle-slider::after {
+        transform: translateX(1.5rem);
+        border-color: white;
+    }
+
+    .existing-rule {
+        background: #f9fafb;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .delete-btn {
+        color: #f87171;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .delete-btn:hover {
+        color: brown !important;
+        border: none !important;
+        background-color: none !important;
+    }
+
+    /* Hover effect for OTP methods */
+    .otp-method:hover {
+        background-color: #e5e7eb;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .container {
+        min-height: 100vh;
+        padding: 1.5rem;
+        width: 70%;
+        margin: 0 auto;
+    }
+
+    .card {
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        width: 100%;
+    }
+
+    .card-title {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 1.5rem;
+        color: #111827;
+    }
+
+    .card-description {
+        font-size: 1.5rem;
+        color: #4B5563;
+        margin-bottom: 2rem;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2.5rem;
+        margin-top: 4rem;
+    }
+
+    @media (max-width: 768px) {
+        .grid {
+            grid-template-columns: 1fr;
+        }
+
+        .container {
+            width: 90%;
+        }
+    }
+
+    .selection-card {
+        background: white;
+        border: 2px solid #E5E7EB;
+        border-radius: 0.5rem;
+        padding: 3rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .selection-card:hover {
+        border-color: #eb5202;
+        transform: translateY(-2px);
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+    }
+
+    .icon-title-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .icon-wrapper {
+        background-color: #FFF7ED;
+        padding: 1.6rem;
+        border-radius: 0.5rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .selection-card:hover .icon-wrapper {
+        background-color: #FFEDD5;
+    }
+
+    .card-icon {
+        font-size: 3rem;
+        color: #eb5202;
+    }
+
+    .chevron {
+        color: #9CA3AF;
+        transition: color 0.3s ease;
+    }
+
+    .selection-card:hover .chevron {
+        color: #eb5202;
+    }
+
+    .card-subtitle {
+        font-size: 1.9rem;
+        font-weight: 700;
+        color: #1F2937;
+    }
+
+    .card-text {
+        color: #4B5563;
+        font-size: 1.6rem;
+        line-height: 1.5;
+        margin-top: -2rem;
+    }
+
+    .guide-section {
+        margin-top: 4rem;
+        padding: 2rem;
+        background-color: #F9FAFB;
+        border-radius: 0.5rem;
+    }
+
+    .guide-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #1F2937;
+    }
+
+    .guide-list {
+        list-style-type: disc;
+        padding-left: 2rem;
+        color: #4B5563;
+        font-size: 1.4rem;
+    }
+
+    .guide-list li {
+        margin-bottom: 0.5rem;
+    }
+
+</style>
+
+
+<?php
+// PHP Initialization
+
+$formKey = $this->getBlockHtml('formkey'); // Security form key
+$create_account_first = ($this->checkaccountVerified()) ? '' : 'disabled';
+$account = $this->getExtensionPageUrl('account');
+$is_enterpriseplan_active = $this->check2fa_backend_plan() ? '' : 'disabled';
+$admin2fa = $this->getExtensionPageUrl('admin2fa');
+$customer2fa = $this->getExtensionPageUrl('customer2fa');
+
+$isEnabled = $this->isEnabled();
+$disabled = !$isEnabled ? "disabled" : "";
+
+if ($this->isTrialExpired()) {
+    $disabled = "disabled";
+}
+
+?>
+
+<div class="p-6" style="width:70%;">
+    <?php if ($create_account_first == 'disabled') { ?>
+        <div class="error-msg" style="margin-bottom: 2rem; margin-top:2rem">
+            Please register and verify your account before trying to configure your settings. Go to the <a
+                href="<?= $account ?>" style="font-weight:bold">Account</a> section to complete your registration.
+        </div>
+    <?php } ?>
+    <div class="bg-white rounded-lg shadow p-6" style="width: 100%;">
+        <h1 class="text-3xl font-bold mb-6 text-black" style="font-size: 2.5rem; padding-top:1rem">
+            Two-Factor Authentication Setup
+        </h1>
+
+        <p class="text-gray-600 mb-8" style="font-size: 1.5rem; padding-top:0.1rem">
+            Choose who you want to configure 2FA settings for:
+        </p>
+
+        <div class="grid">
+            <!-- Customer Configuration Card -->
+            <div class="selection-card" onclick="handleSelection('customer')">
+                <div class="card-header">
+                    <div class="icon-title-group">
+                        <div class="icon-wrapper">
+                            <i class="fas fa-users card-icon"></i>
+                        </div>
+                        <h3 class="card-subtitle">Customer 2FA</h3>
+                    </div>
+                    <i class="fas fa-chevron-right chevron"></i>
+                </div>
+                <br>
+                <p class="card-text">
+                    Configure two-factor authentication settings for your customers across different websites and
+                    groups.
+                </p>
+            </div>
+
+            <!-- Admin Configuration Card -->
+            <div class="selection-card" onclick="handleSelection('admin')">
+                <div class="card-header">
+                    <div class="icon-title-group">
+                        <div class="icon-wrapper">
+                            <i class="fas fa-shield-alt card-icon"></i>
+                        </div>
+                        <h3 class="card-subtitle">Admin 2FA</h3>
+                    </div>
+                    <i class="fas fa-chevron-right chevron"></i>
+                </div>
+                <br>
+                <p class="card-text">
+                    Set up two-factor authentication rules and policies for administrative users and staff.
+                </p>
+            </div>
+        </div>
+
+        <div class="guide-section bg-gray-100 rounded-lg p-8 mt-8">
+            <h4 class="guide-title text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-3">
+                <i class="fas fa-book text-orange-500"></i> Quick Guide
+            </h4>
+            <ul class="guide-list pl-6 text-gray-700 text-lg space-y-3">
+                <li class="">
+                    <span>
+                        Select either <span class="font-medium text-black">Customer</span> or
+                        <span class="font-medium text-black">Admin 2FA</span> configuration
+                    </span>
+                </li>
+                <li class="">
+                    <span>Configure authentication methods and rules on the next screen</span>
+                </li>
+                <li class="">
+                    <span>Review and manage all configurations in the central dashboard</span>
+                </li>
+            </ul>
+
+
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Form -->
+<form id="redirect-form" method="post">
+    <?= $formKey ?>
+</form>
+
+<script>
+    function handleSelection(type) {
+        // Get the form element
+        const form = document.getElementById('redirect-form');
+
+        // Determine the action URL based on the type
+        const actionUrl = (type === 'customer')
+            ? "<?php echo $customer2fa; ?>type/" + type
+            : "<?php echo $admin2fa; ?>type/" + type;
+
+        // Set the action attribute of the form
+        form.action = actionUrl;
+
+        // Submit the form
+        form.submit();
+    }
+</script>

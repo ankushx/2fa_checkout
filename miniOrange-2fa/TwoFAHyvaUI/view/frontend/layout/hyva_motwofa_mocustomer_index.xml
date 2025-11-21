@@ -1,0 +1,24 @@
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+<head>
+<css src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" src_type="url"/>
+<remove src="MiniOrange_TwoFA::css/motwofa-customer.css"/>
+<css src="MiniOrange_TwoFAHyvaUI::css/tailwind-source.css"/>
+</head>
+<body>
+        <referenceBlock name="navigation.sections" remove="true"/>
+        <referenceBlock name="store.menu" remove="true"/>
+        <referenceBlock name="store.links" remove="true"/>
+        <referenceBlock name="top.links" remove="true"/>
+        <referenceBlock name="catalog.topnav" remove="true"/>
+        <referenceBlock name="header.container" remove="true"/>
+        <!-- For Hyva-specific navigation -->
+        <referenceBlock name="hyva.navigation" remove="true"/>
+        <referenceBlock name="hyva.page.menu" remove="true"/>
+
+<referenceBlock name="columns" display="false"/>
+<referenceBlock name="main.content" display="false"/>
+<referenceContainer name="page.wrapper">
+<block class="MiniOrange\TwoFA\Block\TwoFA" template="MiniOrange_TwoFAHyvaUI::customer.phtml" name="miniorange.2fa.frontend.customer"/>
+</referenceContainer>
+</body>
+</page>

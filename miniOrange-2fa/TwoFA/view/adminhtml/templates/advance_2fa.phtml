@@ -1,0 +1,775 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<?php
+// PHP Initialization for Advanced Settings
+
+$formKey = $this->getBlockHtml('formkey'); // Security form key
+
+//remeber device customer
+$customer_remember_device = $this->get_customer_remember_device() ? 'checked' : '';
+$customer_remember_device_days = $this->get_customer_remember_device_days() ? (int)$this->get_customer_remember_device_days() : '';
+$customer_remember_device_count = $this->get_customer_remember_device_count() ? (int)$this->get_customer_remember_device_count() : '';
+
+$customer_skip_twofa = $this->do_customer_skip_twofa() ? 'checked' : '';
+$customer_enable_cartAmount = $this->customer_enable_cartAmount() ? 'checked' : '';
+
+
+$customer_skip_days = $this->customer_skip_days() != NULL ? $this->customer_skip_days() : "";
+$customer_minimum_cart_amount = $this->customer_minimum_cart_amount() != NULL ? $this->customer_minimum_cart_amount() : "";
+
+$customer_enable_alternate_2fa_method = $this->customer_enable_alternate_2fa_method() ? 'checked' : '';
+$customer_alternate_2fa_method = $this->customer_alternate_2fa_method() ? $this->customer_alternate_2fa_method() : '';
+
+// block spam phone number
+$customer_enable_block_spam_phone_number = $this->customer_enable_block_spam_phone_number() ? 'checked' : '';
+$customer_block_spam_phone_number = $this->customer_block_spam_phone_number() ? $this->customer_block_spam_phone_number() : '';
+// string(36) "["OOE","GoogleAuthenticator","OOSE"]"
+
+$customer_popup_customization = $this->customer_popup_customization() ? 'checked' : '';
+$customer_ip_listing = $this->customer_ip_listing() ? 'checked' : '';
+$whitelistIPs = $this->whitelistIPs() ? $this->whitelistIPs() : '';
+$blacklistIPs = $this->blacklistIPs() ? $this->blacklistIPs() : '';
+
+// Decode the JSON strings
+$whitelistIPs = $this->whitelistIPs() ? json_decode($this->whitelistIPs(), true) : [];
+$blacklistIPs = $this->blacklistIPs() ? json_decode($this->blacklistIPs(), true) : [];
+$create_account_first = ($this->checkaccountVerified()) ? '' : 'disabled';
+$pricing = $this->getExtensionPageUrl('upgrade');
+
+// Get current OTP length setting
+$current_otp_length = $this->getOtpLength();
+
+// Get current authenticator app name settings
+$authenticator_app_name_enabled = $this->isAuthenticatorAppNameEnabled() ? 'checked' : '';
+$authenticator_app_name = $this->getAuthenticatorAppName();
+$authenticator_app_name_enabled = $this->isAuthenticatorAppNameEnabled() ? 'checked' : '';
+$authenticator_app_name = $this->getAuthenticatorAppName();
+
+$account = $this->getExtensionPageUrl('account');
+$is_enterpriseplan_active = $this->check2fa_backend_plan() ? '' : 'disabled';
+
+$popup_ui_values = $this->getPopupUI_values();
+if (!$popup_ui_values) {
+    $popup_ui_values = (object)[
+        'BgColor' => '#ffffff',
+        'popupBgColor' => '#ffffff',
+        'popupTextColor' => 'black',
+        'popupBtnColor' => '#ff8500'
+    ];
+}
+$currentAdminRole = $this->getCurrentAdminUser()->getRole()->getRoleName();
+$ifSandboxTrialEnabled = $this->ifSandboxTrialEnabled() && $currentAdminRole =='TWOFA' ? true : false;
+
+$isEnabled = $this->isEnabled();
+$disabled = !$isEnabled || $ifSandboxTrialEnabled ? "disabled" : "";
+
+if ($this->isTrialExpired()) {
+    $disabled = "disabled";
+}
+
+$authMethods = [
+    'OOE' => ['label' => 'OTP over Email', 'icon' => 'fas fa-envelope', 'selected' => false],
+    'OOS' => ['label' => 'OTP over SMS', 'icon' => 'fas fa-sms', 'selected' => false],
+    'GoogleAuthenticator' => ['label' => 'Google Authenticator', 'icon' => 'fas fa-mobile-alt', 'selected' => false],
+    'MicrosoftAuthenticator' => ['label' => 'Microsoft Authenticator', 'icon' => 'fas fa-mobile-alt', 'selected' => false],
+    'OOSE' => ['label' => 'Email + SMS', 'icon' => 'fas fa-bell', 'selected' => false],
+    'OOW' => ['label' => 'WhatsApp', 'icon' => 'fab fa-whatsapp', 'selected' => false]
+];
+
+?>
+
+<div class="p-6" style="width:70%; max-width: 100%;overflow-x: hidden;">
+    <?php if ($create_account_first == 'disabled') { ?>
+        <div class="error-msg" style="margin-bottom: 2rem;margin-top:2rem">
+            Please register and verify your account before trying to configure your settings. Go the <a
+                href="<?= $account ?> " style="font-weight:bold">Account</a> Section to complete your registration.
+        </div> <?php } ?>
+    <div class="bg-white rounded-lg shadow p-6" style="width: 100%;">
+        <h1 class="text-3xl font-bold mb-6 text-black" style="font-size: 2.5rem;">Advanced 2FA Settings </h1>
+        <?php if ($disabled == 'disabled') { ?>  <span class="enterprise_feature"> <span
+                style="color:red;margin-left:10%"> *</span> <span style="color:black; font-weight:normal"> (Available in the <a
+                    href="<?php print_r($pricing); ?>" class="premium btn-link">2fa-frontend/backend</a> version)</span></span></span>
+        <?php } ?>
+        <p class="text-gray-600 mb-8" style="font-size: 1.5rem;padding-top:0.1rem">Customize your two-factor
+            authentication experience.</p>
+
+        <form id="advance_saveSettings" method="post" action="">
+            <?php print_r($formKey); ?>
+            <input type="hidden" name="option" value="advance_saveSettings">
+
+            <!-- 2FA Popup Customization Section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fas fa-palette text-black-600 mr-3"></i>Popup Customization
+                    </h2>
+
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span class="text-gray-700">Enable Popup Customization</span>
+                        <label class="switch">
+                            <input type="checkbox" name="customer_popup_customization" <?php print_r($disabled); ?>
+                                   class="hidden" <?= $customer_popup_customization; ?>>
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+
+
+                    <div class="grid md:grid-cols-2 gap-6" style="font-size:1.4rem;padding-top:1.5rem">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="BgColor" class="block text-gray-700 mb-2">Background Color</label>
+                                <div class="flex items-center">
+                                    <input type="color" id="BgColor" name="BgColor" <?php print_r($disabled); ?>
+                                           class="w-17 h-15 mr-3 border rounded"
+                                           value="<?= htmlspecialchars($popup_ui_values->BgColor); ?>">
+                                    <span id="bgColorValue"
+                                          class="text-gray-600"><?= htmlspecialchars($popup_ui_values->BgColor); ?></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="popupBtnColor" class="block text-gray-700 mb-2">Button Color</label>
+                                <div class="flex items-center">
+                                    <input type="color" id="popupBtnColor"
+                                           name="popupBtnColor" <?php print_r($disabled); ?>
+                                           class="w-17 h-15 mr-3 border rounded"
+                                           value="<?= htmlspecialchars($popup_ui_values->popupBtnColor); ?>">
+                                    <span id="buttonColorValue"
+                                          class="text-gray-600"><?= htmlspecialchars($popup_ui_values->popupBtnColor); ?></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="popupTextColor" class="block text-gray-700 mb-2">Text Color</label>
+                                <div class="flex items-center">
+                                    <input type="color" id="popupTextColor"
+                                           name="popupTextColor" <?php print_r($disabled); ?>
+                                           class="w-17 h-15 mr-3 border rounded"
+                                           value="<?= htmlspecialchars($popup_ui_values->popupTextColor); ?>">
+                                    <span id="textColorValue"
+                                          class="text-gray-600"><?= htmlspecialchars($popup_ui_values->popupTextColor); ?></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="popupBgColor" class="block text-gray-700 mb-2">Popup Color</label>
+                                <div class="flex items-center">
+                                    <input type="color" id="popupBgColor"
+                                           name="popupBgColor" <?php print_r($disabled); ?>
+                                           class="w-17 h-15 mr-3 border rounded"
+                                           value="<?= htmlspecialchars($popup_ui_values->popupBgColor); ?>">
+                                    <span id="popupColorValue"
+                                          class="text-gray-600"><?= htmlspecialchars($popup_ui_values->popupBgColor); ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remember Device Section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fas fa-desktop text-black-600 mr-3"></i>Remember My Device
+                    </h2>
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span class="text-gray-700">Enable Remember Device</span>
+                        <label class="switch">
+                            <input type="checkbox" name="customer_remember_device" <?php print_r($disabled); ?>
+                                   class="hidden" <?= $customer_remember_device; ?>>
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+
+                    <!-- Note -->
+                    <div id="noteSection" class="bg-white border border-yellow-600 text-yellow-300 rounded-lg p-4 my-8"
+                         style="color:black">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle text-lg mr-2"></i>
+                            <p class="text-lg font-medium">Note</p>
+                        </div>
+                        <p class="mt-2" style="font-size: 1.3rem;">
+                            Enabling this option activates the <strong>"Remember Device"</strong> feature. Trusted
+                            devices bypass the second factor (e.g., OTP) on subsequent logins, allowing access
+                            with just a username and password.
+                        </p>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <div>
+                            <label class="block text-gray-700 mb-2 font-semibold">Maximum Devices</label>
+                            <select class="w-full p-2 border border-gray-300 rounded-md"
+                                    name="customer_device_count" <?php print_r($disabled); ?>>
+                                <option value="" <?= !$customer_remember_device_count ? 'selected' : ''; ?>>Select the
+                                    maximum number of devices
+                                </option>
+                                <option value="1" <?= $customer_remember_device_count == 1 ? 'selected' : ''; ?>>1
+                                    Device
+                                </option>
+                                <option value="2" <?= $customer_remember_device_count == 2 ? 'selected' : ''; ?>>2
+                                    Devices
+                                </option>
+                                <option value="3" <?= $customer_remember_device_count == 3 ? 'selected' : ''; ?>>3
+                                    Devices
+                                </option>
+                                <option value="4" <?= $customer_remember_device_count == 4 ? 'selected' : ''; ?>>4
+                                    Devices
+                                </option>
+                                <option value="5" <?= $customer_remember_device_count == 5 ? 'selected' : ''; ?>>5
+                                    Devices
+                                </option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2 font-semibold">Device Remember Period</label>
+                            <select
+                                class="w-full p-2 border border-gray-300 rounded-md" <?php print_r($disabled); ?>
+                                name="customer_remember_device_Days">
+                                <option value="" <?= !$customer_remember_device_days ? 'selected' : ''; ?>>Select the
+                                    maximum number of days
+                                </option>
+                                <option value="7" <?= $customer_remember_device_days == 7 ? 'selected' : ''; ?>>7 Days
+                                </option>
+                                <option value="14" <?= $customer_remember_device_days == 14 ? 'selected' : ''; ?>>14
+                                    Days
+                                </option>
+                                <option value="30" <?= $customer_remember_device_days == 30 ? 'selected' : ''; ?>>30
+                                    Days
+                                </option>
+                                <option value="90" <?= $customer_remember_device_days == 90 ? 'selected' : ''; ?>>90
+                                    Days
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Skip 2FA Section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fa-solid fa-forward text-black-600 mr-3"></i>Skip Two-Factor Authentication
+                    </h2>
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span class="text-gray-700">Allow 2FA Skip</span>
+                        <label class="switch">
+                            <input type="checkbox" name="customer_skip_inline" <?php print_r($disabled); ?>
+                                   class="hidden" <?= $customer_skip_twofa; ?>>
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+
+                    <!-- Note -->
+                    <div id="noteSection" class="bg-white border border-yellow-600 text-yellow-300 rounded-lg p-4 my-8"
+                         style="color:black">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle  text-lg mr-2"></i>
+                            <p class="text-lg font-medium">Note</p>
+                        </div>
+                        <p class=" mt-2" style="font-size: 1.3rem;">
+                            Enabling this option will provide customers with the <strong>"Remind me later"</strong>
+                            feature. Customers can bypass the second factor (e.g., OTP) for a specified number
+                            of days, allowing access using only their username and password.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2"
+                               style="font-size:1.4rem; padding-top:1rem;">Skip Days</label>
+                        <input type="number" <?php print_r($disabled); ?>
+                               placeholder="Enter the maximum number of days to skip Two-Factor Authentication"
+                               name="customer_skip_days" value="<?= htmlspecialchars($customer_skip_days); ?>" min="1"
+                               max="90" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+            </div>
+
+            <!-- IP Whitelist/Blacklist Section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fas fa-shield-alt text-black-600 mr-3"></i>IP Access Control
+                    </h2>
+
+
+                    <!-- toggle -->
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span class="text-gray-700">Enable Toggle for IP Blacklisting and Whitelisting</span>
+                        <label class="switch">
+                            <input type="checkbox" name="customer_ip_listing"
+                                   class="hidden" <?= $customer_ip_listing; ?>  <?php print_r($disabled); ?>>
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <!-- Whitelist IPs Section -->
+                        <!-- Whitelist IPs Section -->
+                        <div class="bg-white p-6 rounded-lg">
+                            <label class="block text-gray-700 mb-2 ml-3 font-semibold">Whitelist IPs</label>
+                            <div class="tags-input-container" id="whitelist-tags-container">
+                                <input type="hidden" name="whitelistIPs" id="whitelistIPsHidden"
+                                       value="<?= $whitelistIPs ? htmlspecialchars(json_encode($whitelistIPs)) : ''; ?>">
+                                <textarea   <?php print_r($disabled); ?>
+                    class="w-full p-2 border border-gray-300 rounded-md"
+                    id="whitelist-tags-input"
+                    placeholder="enter all your ip addresses with ; (example: ip1; ip2; ip3;........;)"></textarea>
+                                </textarea>
+
+                            </div>
+                        </div>
+
+                        <!-- Blacklist IPs Section -->
+                        <div class="bg-white p-6 rounded-lg">
+                            <label class="block text-gray-700 mb-3 ml-3 font-semibold">Blacklist IPs</label>
+                            <div class="tags-input-container" id="blacklist-tags-container">
+                                <input type="hidden" name="blacklistIPs" id="blacklistIPsHidden"
+                                       value="<?= $blacklistIPs ? htmlspecialchars(json_encode($blacklistIPs)) : ''; ?>">
+                                <textarea  <?php print_r($disabled); ?>
+                        class="w-full p-2 border border-gray-300 rounded-md"
+                        id="blacklist-tags-input"
+                        placeholder="enter all your ip addresses with ; (example: ip1; ip2; ip3;........;)"
+                                ></textarea>
+                            </div>
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- 2fa checkout : Minimum Cart Amount for 2FA Trigger -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fa-solid fa-forward text-black-600 mr-3"></i>Minimum Cart Amount for 2FA Trigger
+                    </h2>
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span class="text-gray-700">Enable Minimum Cart Amount for 2FA Trigger</span>
+                        <label class="switch">
+                            <input type="checkbox" name="customer_enable_cartAmount" <?php print_r($disabled); ?>
+                                   class="hidden" <?= $customer_enable_cartAmount; ?>>
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+
+                    <!-- Note -->
+                    <div id="noteSection" class="bg-white border border-yellow-600 text-yellow-300 rounded-lg p-4 my-8"
+                         style="color:black">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle  text-lg mr-2"></i>
+                            <p class="text-lg font-medium">Note</p>
+                        </div>
+                        <p class=" mt-2" style="font-size: 1.3rem;">
+                            Enabling this option will trigger 2FA for customers checkout page who have a minimum cart amount set.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2"
+                               style="font-size:1.4rem; padding-top:1rem;">Minimum Cart Amount </label>
+                        <input type="number" <?php print_r($disabled); ?>
+                               placeholder="Enter the minimum cart amount ($)"
+                               name="customer_minimum_cart_amount" value="<?= htmlspecialchars($customer_minimum_cart_amount); ?>" min="1"
+                               max="90" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+            </div>
+
+            <!-- alternate 2fa method section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fas fa-shield-alt text-black-600 mr-3"></i>Alternate 2FA Method
+                    </h2>
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span class="text-gray-700">Enable Alternate 2FA Method</span>
+                        <label class="switch">
+                            <input type="checkbox" name="customer_enable_alternate_2fa_method" <?php print_r($disabled); ?>
+                                   class="hidden" <?= $customer_enable_alternate_2fa_method; ?>>
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+
+                    <div>
+                        <!-- add method selection for alternate 2fa method -->
+                         <div class="grid md:grid-cols-2 gap-4" style="font-size:1.4rem; padding-top:1rem;">
+                            <?php foreach ($authMethods as $key => $method): ?>
+                                <div class="flex items-center justify-between p-4 bg-gray-100 border rounded-lg cursor-pointer"
+                                     style="background-color: white;" onclick="toggleCheckbox(this)">
+                                    <div class="flex items-center gap-3" style="font-size:1.6rem">
+                                        <i class="<?= $method['icon'] ?> text-xl " style="color:black;font-size:1.6rem"></i>
+                                        <span><?= htmlspecialchars($method['label']); ?></span>
+                                    </div>
+                                    <?php
+                                        // Decode the saved methods string into array
+                                        $selectedAlternateMethods = [];
+                                        if (!empty($customer_alternate_2fa_method)) {
+                                            $decoded = json_decode($customer_alternate_2fa_method, true);
+                                            if (is_array($decoded)) {
+                                                $selectedAlternateMethods = $decoded;
+                                            }
+                                        }
+                                    ?>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox"
+                                               name="customer_alternate_2fa_methods[]"
+                                               value="<?= htmlspecialchars($key); ?>"
+                                               class="otp-toggle peer sr-only"
+                                               data-method="<?= $key ?>"
+                                               data-method-label="<?= $method['label'] ?>"
+                                            <?= in_array($key, $selectedAlternateMethods) ? 'checked' : ''; ?>
+                                        >
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            <?php endforeach; ?>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- block spam phone number section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fas fa-phone text-black-600 mr-3"></i>Block Spam Phone Number
+                    </h2>
+
+                    <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                        <span class="text-gray-700">Enable Block Spam Phone Number</span>
+                        <label class="switch">
+                            <input type="checkbox" name="customer_enable_block_spam_phone_number" <?php print_r($disabled); ?>
+                                   class="hidden" <?= $customer_enable_block_spam_phone_number; ?>>
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+                    
+                    <!-- Note -->
+                    <div id="noteSection" class="bg-white border border-yellow-600 text-yellow-300 rounded-lg p-4 my-8"
+                         style="color:black">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle  text-lg mr-2"></i>
+                            <p class="text-lg font-medium">Note</p>
+                        </div>
+                        <p class=" mt-2" style="font-size: 1.3rem;">
+                            Enabling this option will prevent customers from sending OTP in with blocked phone numbers. If they already configured with the blocked phone number, they must update their phone number in their Customer account's 2FA settings.
+                        </p>
+                    </div>
+
+                    <div>
+                        <!-- here add a textbox where i can add the phone number ; separated -->
+                        <input type="text" name="customer_block_spam_phone_number" <?php print_r($disabled); ?>
+                               placeholder="Enter the phone number ; separated (example: +1234567890; +1234567891; +1234567892;........;)"
+                               value="<?= htmlspecialchars($customer_block_spam_phone_number); ?>" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2fa rate limit section -->
+
+            <!-- OTP Length Section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fas fa-key text-black-600 mr-3"></i>miniOrange Gateway OTP Length Configuration
+                    </h2>
+                    <div class="mb-4">
+                        <label for="otp_length" class="block text-sm font-medium text-gray-700 mb-2"
+                               style="font-size:1.6rem; padding-top: 1.4rem; padding-bottom: 1rem;">
+                            OTP Length
+                        </label>
+                                                 <div class="relative w-full">
+                             <select id="otp_length" name="otp_length" <?php print_r($disabled); ?>
+                                     class="block w-full px-4 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm"
+                                     style="font-size:1.6rem">
+                                 <option value="4" <?= $current_otp_length == 4 ? 'selected' : ''; ?>>4 digits</option>
+                                 <option value="5" <?= $current_otp_length == 5 ? 'selected' : ''; ?>>5 digits</option>
+                                 <option value="6" <?= $current_otp_length == 6 ? 'selected' : ''; ?>>6 digits</option>
+                                 <option value="7" <?= $current_otp_length == 7 ? 'selected' : ''; ?>>7 digits</option>
+                                 <option value="8" <?= $current_otp_length == 8 ? 'selected' : ''; ?>>8 digits</option>
+                             </select>
+                         </div>
+                                             <!-- Note -->
+                     <div id="noteSection" class="bg-white border border-yellow-600 text-yellow-300 rounded-lg p-4 my-8"
+                          style="color:black">
+                         <div class="flex items-center">
+                             <i class="fas fa-info-circle  text-lg mr-2"></i>
+                             <p class="text-lg font-medium">Note</p>
+                         </div>
+                         <p class="mt-2" style="font-size: 1.3rem;">
+                            This length applies only when using the default miniOrange gateway (not a custom gateway). By default, the OTP length is 6. You can change it by following <a href="https://faq.miniorange.com/knowledgebase/change-length-otp/" target="_blank" class="text-blue-600 hover:text-blue-800 underline"><strong>this</strong></a>.
+                        </p>
+
+                     </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authenticator App Name Section -->
+            <div class="container mx-auto p-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 mt-2" style="font-size:1.8rem">
+                        <i class="fas fa-wrench text-black-600 mr-3"></i>Authenticator App Name
+                    </h2>
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-4" style="font-size:1.4rem; padding-top:1rem;">
+                            <span class="text-gray-700">Enable App Name</span>
+                            <label class="switch">
+                                <input type="checkbox" name="authenticator_app_name_enabled" <?php print_r($disabled); ?>
+                                       class="hidden" <?= $authenticator_app_name_enabled; ?>>
+                                <div class="slider round"></div>
+                            </label>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="authenticator_app_name" class="block text-sm font-medium text-gray-700 mb-2"
+                                   style="font-size:1.6rem; padding-top: 1.4rem; padding-bottom: 1rem;">
+                                App Name:
+                            </label>
+                            <div class="relative w-full">
+                                <input type="text" id="authenticator_app_name" name="authenticator_app_name" 
+                                       <?php print_r($disabled); ?>
+                                       class="block w-full px-4 py-4 text-gray-700 border border-gray-300 rounded-lg shadow-sm"
+                                       style="font-size:1.6rem"
+                                       value="<?= htmlspecialchars($authenticator_app_name); ?>"
+                                       placeholder="Enter custom app name">
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2" style="font-size:1.3rem;">
+                                Default: "miniOrange"
+                            </p>
+                        </div>
+
+                        <!-- Note -->
+                        <div class="bg-white border border-yellow-600 text-yellow-300 rounded-lg p-4 my-8"
+                             style="color:black">
+                            <div class="flex items-center">
+                                <i class="fas fa-info-circle text-lg mr-2"></i>
+                                <p class="text-lg font-medium">Note</p>
+                            </div>
+                            <p class="mt-2" style="font-size: 1.3rem;">
+                                This name will appear in users' authenticator apps (Google Authenticator, Microsoft Authenticator, etc.) when they scan the QR code. Choose a recognizable name for your service.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 flex space-x-4" style="margin-left:1.5rem">
+                <button id="saveSettingsBtn" type="submit" <?php print_r($disabled); ?>
+                        class="px-6 py-4 text-white font-semibold rounded-lg transition-colors duration-200">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+
+
+    <!-- JavaScript to handle form submission and interactivity -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Function to initialize dynamic tags
+            function initializeTags(containerId, inputId, hiddenInputId, tagClass) {
+                const tagsInput = document.getElementById(inputId);
+                const hiddenInput = document.getElementById(hiddenInputId);
+                const container = document.getElementById(containerId);
+
+                // Initialize tags from hidden input value (set to an empty array if no value is present)
+                let tags = hiddenInput.value ? JSON.parse(hiddenInput.value) : [];
+
+                // Function to render tags
+                function renderTags() {
+                    // Remove all existing tags
+                    container.querySelectorAll(".tag").forEach(tag => tag.remove());
+
+                    // If tags are present, render them
+                    tags.forEach(tag => {
+                        const tagElement = document.createElement("div");
+                        tagElement.classList.add("tag", ...tagClass.split(" "));
+
+                        const tagSpan = document.createElement("span");
+                        tagSpan.textContent = tag;
+
+                        const removeBtn = document.createElement("div");
+                        removeBtn.classList.add("remove-tag");
+
+                        // Create the Font Awesome "X" icon
+                        const icon = document.createElement("i");
+                        icon.classList.add("fas", "fa-times"); // Add Font Awesome classes
+
+                        removeBtn.appendChild(icon); // Append the icon inside the remove button
+                        removeBtn.addEventListener("click", () => removeTag(tag));
+
+                        tagElement.appendChild(tagSpan);
+                        tagElement.appendChild(removeBtn);
+                        container.insertBefore(tagElement, tagsInput);
+                    });
+
+                    // Update the hidden input with the current tags as a JSON string
+                    hiddenInput.value = JSON.stringify(tags);
+
+                    // Show the placeholder if no tags exist
+                    if (tags.length == 0) {
+                        tagsInput.placeholder = "Enter all your IP addresses with ; (example: ip1; ip2; ip3; ...;)"; // Show placeholder
+                    }
+                }
+
+                // Function to add a tag
+                function addTag(tag) {
+                    tag = tag.trim();
+                    if (tag && !tags.includes(tag)) {
+                        tags.push(tag);
+                        renderTags();
+                    } else if (tags.includes(tag)) {
+                        alert("Duplicate IP address detected!"); // Show an error message for duplicate IP
+                    }
+                }
+
+                // Function to remove a tag
+                function removeTag(tag) {
+                    tags = tags.filter(t => t !== tag);
+                    renderTags();
+                }
+
+                // Event listener for adding tags on keypress (Enter, comma, semicolon)
+                tagsInput.addEventListener("keypress", function (e) {
+                    if (e.key === "Enter" || e.key === ";") {
+                        e.preventDefault();
+                        const tagInputValue = e.target.value.trim();
+
+                        // If input contains multiple IPs separated by commas, semicolons, or newlines
+                        if (tagInputValue) {
+                            const ipArray = tagInputValue.split(/[\s,;]+/).filter(ip => ip.trim() !== '');
+                            ipArray.forEach(ip => addTag(ip));
+                            e.target.value = ""; // Clear input after processing
+                        }
+                    }
+                });
+
+                // Initialize tag rendering
+                renderTags();
+            }
+
+            // Initialize tags for Whitelist and Blacklist with their specific classes
+            initializeTags(
+                "whitelist-tags-container",
+                "whitelist-tags-input",
+                "whitelistIPsHidden",
+                "px-3 py-1 bg-green-100 text-green-800 rounded-full"
+            );
+
+            initializeTags(
+                "blacklist-tags-container",
+                "blacklist-tags-input",
+                "blacklistIPsHidden",
+                "px-3 py-1 bg-red-100 text-red-800 rounded-full"
+            );
+        });
+
+
+       document.getElementById('saveSettingsBtn').addEventListener('click', function (event) {
+            event.preventDefault();
+
+            // Only collect data from elements that actually exist
+            const settings = {
+                BgColor: document.getElementById('BgColor') ? document.getElementById('BgColor').value : '',
+                popupBtnColor: document.getElementById('popupBtnColor') ? document.getElementById('popupBtnColor').value : '',
+                popupTextColor: document.getElementById('popupTextColor') ? document.getElementById('popupTextColor').value : '',
+                popupBgColor: document.getElementById('popupBgColor') ? document.getElementById('popupBgColor').value : '',
+                customer_popup_customization: document.querySelector('input[name="customer_popup_customization"]') ? document.querySelector('input[name="customer_popup_customization"]').checked : false,
+                customer_remember_device: document.querySelector('input[name="customer_remember_device"]') ? document.querySelector('input[name="customer_remember_device"]').checked : false,
+                customer_skip_inline: document.querySelector('input[name="customer_skip_inline"]') ? document.querySelector('input[name="customer_skip_inline"]').checked : false,
+                customer_ip_listing: document.querySelector('input[name="customer_ip_listing"]') ? document.querySelector('input[name="customer_ip_listing"]').checked : false,
+                authenticator_app_name_enabled: document.querySelector('input[name="authenticator_app_name_enabled"]') ? document.querySelector('input[name="authenticator_app_name_enabled"]').checked : false,
+                customer_device_count: document.querySelector('select[name="customer_device_count"]') ? document.querySelector('select[name="customer_device_count"]').value : '',
+                customer_remember_device_Days: document.querySelector('select[name="customer_remember_device_Days"]') ? document.querySelector('select[name="customer_remember_device_Days"]').value : '',
+                otp_length: document.getElementById('otp_length') ? document.getElementById('otp_length').value : '',
+                customer_skip_days: document.querySelector('input[name="customer_skip_days"]') ? document.querySelector('input[name="customer_skip_days"]').value : '',
+                authenticator_app_name: document.getElementById('authenticator_app_name') ? document.getElementById('authenticator_app_name').value : '',
+                whitelistIPs: document.getElementById('whitelistIPsHidden') ? document.getElementById('whitelistIPsHidden').value : '',
+                blacklistIPs: document.getElementById('blacklistIPsHidden') ? document.getElementById('blacklistIPsHidden').value : ''
+            };
+
+            // Submit the form
+            document.getElementById('advance_saveSettings').submit();
+        });
+
+        // JavaScript to dynamically update the preview
+        document.querySelectorAll('input[type="color"], input[type="url"]').forEach(input => {
+            input.addEventListener('input', () => {
+                const preview = document.getElementById('popupPreview');
+                const popupHeader = document.getElementById('popupHeader');
+                const popupMessage = document.getElementById('popupMessage');
+                const otpInput = document.getElementById('otpInput');
+                const popupFooter = document.getElementById('popupFooter');
+
+                // Update the preview based on user selections
+                preview.style.backgroundColor = document.getElementById('BgColor').value || '#ffffff';
+                popupHeader.style.color = document.getElementById('headerTextColor').value || '#333';
+                popupMessage.style.color = document.getElementById('popupTextColor').value || '#ffffff';
+                popupMessage.style.backgroundColor = document.getElementById('popupBgColor').value || '#ffffff';
+                otpInput.style.backgroundColor = document.getElementById('otpBgColor').value || '#f5f5f5';
+                otpInput.style.color = document.getElementById('otpTextColor').value || '#333';
+                popupFooter.style.color = document.getElementById('footerTextColor').value || '#333';
+
+                // Update background image if URL is provided
+                const bgImageUrl = document.getElementById('popupBgImage').value;
+                if (bgImageUrl) {
+                    preview.style.backgroundImage = `url(${bgImageUrl})`;
+                    preview.style.backgroundSize = 'cover';
+                    preview.style.backgroundPosition = 'center';
+                } else {
+                    preview.style.backgroundImage = 'none';
+                }
+            });
+        });
+
+        document.querySelectorAll('input[type="color"]').forEach((colorInput, index) => {
+            colorInput.addEventListener('input', function () {
+                const valueSpans = [
+                    document.getElementById('textColorValue'),
+                    document.getElementById('buttonColorValue'),
+                    document.getElementById('bgColorValue'),
+                    document.getElementById('popupColorValue')
+                ];
+                valueSpans[index].textContent = this.value;
+            });
+        });
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Simulate dynamic fetching from server
+            const colorsFromServer = {
+                BgColor: "#ffffff",
+                popupBtnColor: "#ff8500",
+                popupTextColor: "#000000",
+                popupBgColor: "#ffffff"
+            };
+
+            // Initialize the color input values dynamically from server data
+            document.getElementById('BgColor').value = colorsFromServer.BgColor;
+            document.getElementById('popupBtnColor').value = colorsFromServer.popupBtnColor;
+            document.getElementById('popupTextColor').value = colorsFromServer.popupTextColor;
+            document.getElementById('popupBgColor').value = colorsFromServer.popupBgColor;
+
+            // Update span text to reflect the initial values
+            document.getElementById('bgColorValue').textContent = colorsFromServer.BgColor;
+            document.getElementById('popupBtnColor').textContent = colorsFromServer.popupBtnColor;
+            document.getElementById('textColorValue').textContent = colorsFromServer.popupTextColor;
+            document.getElementById('popupColorValue').textContent = colorsFromServer.popupBgColor;
+
+            // Add event listeners to update the text when color is changed
+            const colorInputs = document.querySelectorAll('input[type="color"]');
+            colorInputs.forEach(input => {
+                input.addEventListener('input', function () {
+                    const colorValue = this.value;
+                    const span = this.nextElementSibling;
+                    span.textContent = colorValue;
+                });
+            });
+        });
+
+
+    </script>
+
+

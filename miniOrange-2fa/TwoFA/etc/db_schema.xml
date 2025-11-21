@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © Magento, Inc. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="miniorange_tfa_users" resource="default" engine="innodb" comment="MiniOrange MFA">
+        <column xsi:type="smallint" name="id" padding="6" unsigned="false" nullable="false" identity="true"
+                comment="ID"/>
+        <column xsi:type="varchar" name="username" nullable="false" length="255" comment="Username"/>
+        <column xsi:type="varchar" name="email" nullable="false" length="255" comment="Email"/>
+        <column xsi:type="varchar" name="countrycode" nullable="false" length="255" comment="Country Code"/>
+        <column xsi:type="varchar" name="phone" nullable="false" length="255" comment="Phone number"/>
+        <column xsi:type="varchar" name="configured_methods" nullable="false" length="255"
+                comment="Configured Methods"/>
+        <column xsi:type="varchar" name="active_method" nullable="false" length="255" comment="Active Method"/>
+        <column xsi:type="varchar" name="secret" nullable="false" length="255" comment="Authenticator Secret"/>
+        <column xsi:type="varchar" name="transactionId" nullable="false" length="255" comment="Transaction ID"/>
+        <column xsi:type="varchar" name="kba_method" nullable="false" length="1000" comment="KBA Method"/>
+        <column xsi:type="varchar" name="website_id" nullable="false" length="255" comment="Website ID"/>
+        <column xsi:type="varchar" name="skip_twofa" nullable="false" length="255" comment="Skip TwoFA"/>
+        <column xsi:type="varchar" name="skip_twofa_configured_date" nullable="false" length="255"
+                comment="Skip TwoFA information"/>
+        <column xsi:type="boolean" name="skip_twofa_premanent" nullable="false" default="0"
+                comment="Customer Skip TwoFA"/>
+        <column xsi:type="text" name="device_info" nullable="false" comment="Device Information"/>
+        <column xsi:type="boolean" name="disable_2fa" nullable="false" default="0" comment="Disable 2fa"/>
+        <!-- Enhanced column for alternative 2fa methods -->
+        <column xsi:type="text" name="google_authenticator_secret" nullable="true" comment="Google Authenticator Alternate 2FA Secret"/>
+        <column xsi:type="text" name="microsoft_authenticator_secret" nullable="true" comment="Microsoft Authenticator Alternate 2FA Secret"/>
+        <column xsi:type="text" name="sms_alternate_2fa_method" nullable="true" comment="SMS Alternate 2FA Secret"/>
+        <!-- all active methods -->
+        <column xsi:type="text" name="all_active_methods" nullable="true" comment="All Active Methods"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id"/>
+        </constraint>
+    </table>
+    <table name="miniorange_tfa_ipwhitelisted" resource="default" engine="innodb" comment="MiniOrange MFA">
+        <column xsi:type="smallint" name="id" padding="6" unsigned="false" nullable="false" identity="true"
+                comment="ID"/>
+        <column xsi:type="varchar" name="ip_address" nullable="false" length="255" comment="IP Address"/>
+        <column xsi:type="timestamp" name="timestamp" nullable="false" comment="Time Created"/>
+
+
+        <!-- Add your other columns here as needed -->
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id"/>
+        </constraint>
+    </table>
+
+
+    <table name="miniorange_tfa_ipwhitelisted_admin" resource="default" engine="innodb" comment="MiniOrange MFA">
+        <column xsi:type="smallint" name="id" padding="6" unsigned="false" nullable="false" identity="true"
+                comment="ID"/>
+        <column xsi:type="varchar" name="ip_address" nullable="false" length="255" comment="IP Address"/>
+        <column xsi:type="timestamp" name="timestamp" nullable="false" comment="Time Created"/>
+
+
+        <!-- Add your other columns here as needed -->
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id"/>
+        </constraint>
+    </table>
+
+</schema>

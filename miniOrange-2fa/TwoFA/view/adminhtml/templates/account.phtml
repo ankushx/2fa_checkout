@@ -1,0 +1,39 @@
+<!--
+    This template file is for the account settings.
+    File acts as a view file for our Account.
+-->
+
+<?php
+// initialize all values required on this page
+$status = $this->getRegistrationStatus();
+$userEmail = $this->getCurrentAdminUser()->getEmail();
+
+print_r('      <div class="row">
+<div class="">
+            <div class="page" id="account" style="">
+            <div class="mosp_table_layout">');
+
+if ($status == '' || $status == 'MO_VERIFY_CUSTOMER') {
+    echo $this->getLayout()
+        ->createBlock("MiniOrange\TwoFA\Block\TwoFA")
+        ->setTemplate("MiniOrange_TwoFA::register.phtml")
+        ->toHtml();
+} else if (!$this->isLicenseKeyVerified() && !$this->isTrialActivated()) {
+    /*===========================================================================================
+                    THIS IS PREMIUM PLUGIN SPECIFIC
+=============================================================================================*/
+    echo $this->getLayout()
+        ->createBlock("MiniOrange\TwoFA\Block\TwoFA")
+        ->setTemplate("MiniOrange_TwoFA::verifylk.phtml")
+        ->toHtml();
+} else {
+
+    echo $this->getLayout()
+        ->createBlock("MiniOrange\TwoFA\Block\TwoFA")
+        ->setTemplate("MiniOrange_TwoFA::profile.phtml")
+        ->toHtml();
+}
+
+
+print_r('       </div>
+        </div>');

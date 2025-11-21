@@ -1,0 +1,93 @@
+<?php
+// initialize all variables
+$TwoFAsettings = $this->getExtensionPageUrl('TwoFAsettings');
+$signinsettings = $this->getExtensionPageUrl('signinsettings');
+$attrsettings = $this->getExtensionPageUrl('attrsettings');
+$support = $this->getExtensionPageUrl('support');
+$formKey = $this->getBlockHtml('formkey');
+$sms_email_detail = $this->get_sms_email_detail();
+$customer2fa = $this->getExtensionPageUrl('customer2fa');
+$admin2fa = $this->getExtensionPageUrl('admin2fa');
+$is_trial_plan = $this->check_license_plan(4) ? 1 : 0;
+$Plan_name = $this->check_license_plan(3) ? 'Backend' : ($this->check_license_plan(2) ? 'Frontend' : ($this->check_license_plan(1) ? 'Premium' : 'Trial'));
+$is_trial_plan_expired = $this->isTrialExpired() ? 1 : 0;
+
+?>
+
+<style>
+</style>
+<div id="userprofile" style="width:70%;">
+
+
+    <div class="px-mo-32 my-8 pt-8">
+        <div class="flex my-2" style="justify-content:space-between;align-items: center;">
+            <h1 class="text-3xl font-bold text-black mb-6 text-black my-4 text-black"
+                style="font-size: 2.5rem; display: block;">
+                miniOrange Account Information
+            </h1>
+
+            <span class="flex-2">
+                        <form name="f" method="post" action="">
+                            <?php echo $formKey; ?>
+                            <input type="hidden" name="option" value="removeAccount">
+                            <input type="submit" style="float:right;" class="rounded-lg font-semibold" name="submit"
+                                   id="remove_plugin" value="Remove Account">
+
+                            </input >
+                        </form>
+                        <?php if ($is_trial_plan_expired) { ?>
+                            <!-- Form for Extend Trial action -->
+            <form name="extendtrial" method="post" action="">
+                <?php print_r($formKey); ?>
+                <input type="hidden" name="option" value="extendTrial">
+                <input class="btn-round" type="submit" style=" float:right; margin-right:10px;" name="submit"
+                    id="extend_trial" value="Extend Trial">
+            </form>
+
+                        <?php } ?>
+            </span>
+
+        </div>
+
+
+        <div class="bg-white rounded-lg my-14" style="width: 100%;">
+            <p class="my-4">Thanks for upgrading to the <?php print_r($Plan_name); ?> plan.</p>
+
+            <table class="table-auto w-full border-collapse border border-gray-300 rounded-lg shadow-md bg-white">
+
+                <tbody>
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 text-gray-700 font-medium">miniOrange Account Email</td>
+                    <td class="px-6 py-4 text-gray-700"><?php print_r($this->getCustomerEmail()); ?></td>
+                </tr>
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 text-gray-700 font-medium">Customer ID</td>
+                    <td class="px-6 py-4 text-gray-700"><?php print_r($this->getCustomerKey()); ?></td>
+                </tr>
+                <?php if (isset($sms_email_detail->status) && $sms_email_detail->status == 'SUCCESS' && isset($sms_email_detail->smsRemaining) && isset($sms_email_detail->emailRemaining)) { ?>
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-gray-700 font-medium">Remaining SMS</td>
+                        <td class="px-6 py-4 text-gray-700"><?php print_r($sms_email_detail->smsRemaining); ?></td>
+                    </tr>
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-gray-700 font-medium">Remaining Emails</td>
+                        <td class="px-6 py-4 text-gray-700"><?php print_r($sms_email_detail->emailRemaining); ?></td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+            <br>
+            <?php if ($is_trial_plan) { ?>
+                            <!-- Form for Extend Trial action -->
+            <form name="activateLicense" method="post" action="">
+                <?php print_r($formKey); ?>
+                   <input type="hidden"  name="option" value="activatePremiumPlan" />
+                    <input type="submit" class="btn-round" name="submit" id="remove_plugin" value="Activate License"/>
+            </form>
+
+            <?php } ?>
+
+
+        </div>
+
+    </div>

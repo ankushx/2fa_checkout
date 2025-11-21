@@ -1,0 +1,44 @@
+{
+    "name": "miniorange_inc/miniorange-2fa",
+    "description": "Miniorange 2FA for Magento 2",
+    "type": "magento2-module",
+    "license": [
+        "Commercial",
+        "OSL-3.0",
+        "AFL-3.0"
+    ],
+    "keywords": [
+        "Magento 2",
+        "Magento",
+        "Adobe Commerce",
+        "Security",
+        "Login",
+        "Registration",
+        "Password",
+        "Email",
+        "Phone",
+        "OTP",
+        "2FA"
+    ],
+    "require": {
+        "php": "~7|~8"
+    },
+    "support": {
+        "email": "magentosupport@xecurify.com"
+    },
+    "replace": {
+        "miniorange_inc/miniorange-magento-2fa": "self.version"
+    },
+    "autoload": {
+        "files": [
+            "miniorange-magento-2fa/registration.php",
+            "TwoFAHyvaUI/registration.php"
+        ],
+        "psr-4": {
+            "MiniOrange\\TwoFA\\": "miniorange-magento-2fa",
+            "MiniOrange\\TwoFAHyvaUI\\": "TwoFAHyvaUI"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+  }

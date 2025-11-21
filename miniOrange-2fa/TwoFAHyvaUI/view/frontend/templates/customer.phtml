@@ -1,0 +1,2400 @@
+<div id="miniorange-2fa-container">
+<?php
+
+$formKey = $this->getBlockHtml('formkey');
+$request = $this->getRequestVariable();
+$email = $this->getSessionUsername();
+
+
+if (!$email) {
+    // Get the base URL (homepage)
+    $this->emailerror();
+    $redirectUrl = $this->getBaseUrl();
+    echo "<script type='text/javascript'>window.location.href = '$redirectUrl';</script>";
+    return;
+}
+
+$customer_role = $this->getCurrentCustomerRole($email);
+if (!$customer_role) {
+    // Get the base URL (homepage)
+    $this->emailerror();
+    $redirectUrl = $this->getBaseUrl();
+    echo "<script type='text/javascript'>window.location.href = '$redirectUrl';</script>";
+    return;
+}
+
+$current_website_id = $this->get_customer_current_websiteID();
+$twofaMethods = $this->getCustomer2FAMethodsFromRules($customer_role, $current_website_id, $email);
+$activeMethods = json_decode($twofaMethods['methods'], true);
+$active_method_number = $twofaMethods['count'];
+
+// If user has multiple methods but has configured a specific method, use only that method
+if ($active_method_number > 1 && !empty($email)) {
+    $userDetails = $this->getUserDetailsforcustomerreset();
+    if (!empty($userDetails) && isset($userDetails[0]['active_method']) && !empty($userDetails[0]['active_method'])) {
+        $userActiveMethod = $userDetails[0]['active_method'];
+        $activeMethods = [$userActiveMethod];
+        $active_method_number = 1;
+    }
+}
+
+// Handle case when active methods are not available or empty
+if (is_null($activeMethods) || empty($activeMethods)) {
+    $activeMethods = ['OOE']; // Default to OTP Over Email
+    $active_method_number = 1;
+}
+
+$formPostUrl = $this->getBaseUrl() . "motwofa/mocustomer";
+$loginPageUrl = $this->getBaseUrl() . "customer/account/login/";
+$error = isset($request['error']);
+
+$show_kba_button = $this->show_kba_button($current_website_id);
+$popup_ui_values = $this->getPopupUI_values() ? $this->getPopupUI_values() : '';
+
+
+$customer_skip_twofa = (int)$this->do_customer_skip_twofa();
+
+$is_device_based_enabled = $this->get_customer_remember_device();
+$redirectUrl = $this->getBaseUrl();
+
+$is_device_limit_exceeded = $this->is_device_limit_exceeded($current_website_id, $email);
+
+
+if (isset($request['mooption'])) {
+    if ("invokeTFA" == $request['mooption']) {
+        $method = isset($request['active_method']) ? $request['active_method'] : NULL;
+        
+        // Initialize OTP length with default value
+        $otp_length = 6; 
+        
+        if ($method && ($method == 'MicrosoftAuthenticator' || $method == 'GoogleAuthenticator')) {
+            $otp_length = 6;
+        } else if ($method) {
+            // Use OTP length setting for non-authenticator methods
+            $otp_length = $this->getOtpLengthForMethod($method);
+        } else {
+            // If no method is specified, try to determine from URL parameters or default to OOE for email-based OTP
+            $step = isset($request['step']) ? $request['step'] : '';
+            if ($step === 'OOSMethodValidation') {
+                $method = 'OOS';
+            } else if ($step === 'OOEMethodValidation') {
+                $method = 'OOE';
+            } else if ($step === 'OOSEMethodValidation') {
+                $method = 'OOSE';
+            } else {
+                // Default to OOE for email-based OTP if no other method is specified
+                $method = 'OOE';
+            }
+            $otp_length = $this->getOtpLengthForMethod($method);
+        }
+        
+        // help button: send mail to admin email
+        $adminEmail = 'test@test.com';
+        InvokeUserTFA($formKey, $formPostUrl, $loginPageUrl, $error, $request, $show_kba_button, $popup_ui_values, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length, $adminEmail);
+    } else if ("invokeInline" == $request['mooption'] && isset($request['step'])) {
+
+        switch ($request['step']) {
+
+            case "ChooseMFAMethod":
+                $tfaArray = $this->getAllTfaMethods();
+                ChooseMFAMethod($formKey, $activeMethods, $tfaArray, $formPostUrl, $loginPageUrl, $popup_ui_values, $customer_skip_twofa);
+                break;
+            case "OOSMethodValidation":
+                $otp_length = $this->getOtpLengthForMethod('OOS');
+                OOSMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length);
+                break;
+            case "OOWMethodValidation":
+                $otp_length = $this->getOtpLengthForMethod('OOW');
+                OOWMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length);
+                break;
+            case "GAMethodValidation":
+                $otp_length = 6;
+                $issuer = $this->AuthenticatorIssuer();
+                $QrcodeJS = $this->getQrCodeJS();
+                $AuthUrl = $this->AuthenticatorCustomerUrl($email);
+                $secret = $this->getCustomerSecret();
+                GAMethodValidation($formKey, $formPostUrl, $AuthUrl, $issuer, $QrcodeJS, $error, $active_method_number, $loginPageUrl, $popup_ui_values, $secret, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $request, $otp_length);
+                break;
+            case "MicrosoftAuthenticator":
+                $otp_length = 6;
+                $issuer = $this->AuthenticatorIssuer();
+                $QrcodeJS = $this->getQrCodeJS();
+                $AuthUrl = $this->AuthenticatorCustomerUrl($email);
+                $secret = $this->getCustomerSecret();
+                MicrosoftAuthMethodValidation($formKey, $formPostUrl, $AuthUrl, $issuer, $QrcodeJS, $error, $active_method_number, $loginPageUrl, $popup_ui_values, $secret, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $request, $otp_length);
+                break;
+            case "OOEMethodValidation":
+                $otp_length = $this->getOtpLengthForMethod('OOE');
+                OOEMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length);
+                break;
+            case "OOSEMethodValidation":
+                $otp_length = $this->getOtpLengthForMethod('OOSE');
+
+                OOSEMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length, $redirectUrl);
+                break;
+            case "KBA_Question":
+                $KBAQuestion_set1 = $this->KBAQuestion_set1($current_website_id);
+                $KBAQuestion_set2 = $this->KBAQuestion_set2($current_website_id);
+                KBAMethod($formKey, $formPostUrl, $loginPageUrl, $KBAQuestion_set1, $KBAQuestion_set2, $popup_ui_values, $is_device_based_enabled, $is_device_limit_exceeded);
+                break;
+            case "KBA_Validate":
+                $kba_random_questions = $this->get_kba_question();
+                KBAValidate($formKey, $formPostUrl, $loginPageUrl, $kba_random_questions, $popup_ui_values, $is_device_based_enabled, $is_device_limit_exceeded);
+                break;
+            default:
+                InvalidRequest();
+        }
+    } else {
+        InvalidRequest();
+    }
+
+} else {
+    InvalidRequest();
+}
+
+function OOSMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length)
+{
+    ?>
+    <body style="background-size: 100% 100%; background-color: <?php if (isset($popup_ui_values->BgColor)) {
+        echo $popup_ui_values->BgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+    <div class="customer_card container_new" style="background-color: <?php
+    if (isset($popup_ui_values->popupBgColor)) {
+        echo $popup_ui_values->popupBgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+        <br>
+
+        <div class="card-description">
+            <!-- Phone Input Form -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <input type="hidden" name="mopostoption" value="challenge">
+                <input type="hidden" id="redirect_to" name="redirect_to" value="">
+                <div style="<?php echo isset($request['showdiv']) ? 'display: none;' : 'display: block;'; ?>">
+                    <div class="top_icon">
+                        <div class="back-button">
+                            <?php if ($active_method_number == 1) { ?>
+                                <!-- If active method number is 1, link to the login page -->
+                                <a href="<?php echo $loginPageUrl; ?>" class="back-button"
+                                   style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                       echo $popup_ui_values->popupBtnColor;
+                                   } else {
+                                       echo "#ff8500";
+                                   } ?>">← <?php echo __("Back") ?></a>
+                            <?php } else { ?>
+                                <!-- Otherwise, call the previousStep function -->
+                                <a href="#" class="back-button"
+                                   style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                       echo $popup_ui_values->popupBtnColor;
+                                   } else {
+                                       echo "#ff8500";
+                                   } ?>" onclick="previousStep()">← <?php echo __("Back") ?></a>
+                            <?php } ?>
+                        </div>
+
+                    </div>
+                    <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                        echo $popup_ui_values->popupTextColor;
+                    } else {
+                        echo "black";
+                    } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+                    <p><?php echo __("To secure your account, please provide your phone number for two-factor authentication.") ?></p>
+                    <br><br>
+                    <div class="phone-input-container">
+                        <!-- Country Code Dropdown -->
+                        <?php countrycode($popup_ui_values); ?>
+
+                        <!-- Phone Number Input -->
+                        <input type="number" class="phone-number-input" placeholder="Entrez votre numéro" name="phone"
+                               required/>
+                    </div>
+                    <br>
+                    <button type="submit" class="btn-primary"
+                            style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>" style=""><?php echo __("Send OTP") ?>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Passcode Verification Form -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <input type="hidden" name="mopostoption" value="movalotp">
+                <input type="hidden" name="savestep" value="OOS">
+                <input type="hidden" id="Passcode" name="Passcode">
+
+                <div style="<?php echo isset($request['showdiv']) ? 'display: block;' : 'display: none;'; ?>">
+                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($request['phone'] ?? ''); ?>">
+                    <input type="hidden" name="countrycode"
+                           value="<?php echo htmlspecialchars($request['countrycode'] ?? ''); ?>">
+
+                    <div class="container_new" style="background-color: <?php
+                    if (isset($popup_ui_values->popupBgColor)) {
+                        echo $popup_ui_values->popupBgColor;
+                    } else {
+                        echo "white";
+                    }
+                    ?>">
+                        <div class="top_icon">
+                            <div class="back-button"
+                                 style="color: <?php echo isset($popup_ui_values->popupBtnColor) ? $popup_ui_values->popupBtnColor : '#ff8500'; ?>;">
+                                <?php if ($active_method_number == 1) { ?>
+                                    <!-- If active method number is 1, link to the login page -->
+                                    <a href="<?php echo $loginPageUrl; ?>" class="back-button"
+                                       style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                           echo $popup_ui_values->popupBtnColor;
+                                       } else {
+                                           echo "#ff8500";
+                                       } ?>">← <?php echo __("Back") ?></a>
+                                <?php } else { ?>
+                                    <!-- Otherwise, call the previousStep function -->
+                                    <!-- if else if otp alreadt present -->
+                                    <a href="#" class="back-button"
+                                       style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                           echo $popup_ui_values->popupBtnColor;
+                                       } else {
+                                           echo "#ff8500";
+                                       } ?>"
+                                       onclick="previousStep()">← <?php echo __("Back") ?></a>
+                                <?php } ?>
+                            </div>
+
+                        </div>
+                        <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                            echo $popup_ui_values->popupTextColor;
+                        } else {
+                            echo "black";
+                        } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+                        <div class="message_container"
+                             style="color: <?php echo $error ? '#721c24' : '#155724'; ?>; background-color:
+                             <?php echo $error ? '#f8d7da' : '#d4edda'; ?>; border: 0.1rem solid <?php echo $error ? '#f5c6cb' : '#c3e6cb'; ?>;">
+                            <?php if (isset($request['message']) && !$error): ?>
+                                <?php echo __($request['message']); ?>
+                            <?php elseif ($error): ?>
+                                <?php showerrormessage($popup_ui_values); ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="input-group" id="moPass">
+                            <?php for ($i = 1; $i <= $otp_length; $i++): ?>
+                                <input type="text" maxlength="1" inputmode="numeric"
+                                       aria-label="Verification Code Digit <?php echo $i; ?>">
+                            <?php endfor; ?>
+                        </div>
+
+                        <!-- rememvber my device -->
+                        <?php if ($is_device_based_enabled && $is_device_limit_exceeded): ?>
+                            <div class="customer_row" style="margin-top: 15px; margin-bottom: 10px;">
+                                <div class="col-sm-12">
+                                    <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                                           style="margin-right: 10px;">
+                                    <label for="rememberDevice"><?php echo __("Remember My Device") ?></label>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                        <br>
+                        <button class="btn-primary"
+                                style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                    echo $popup_ui_values->popupBtnColor;
+                                } else {
+                                    echo "#ff8500";
+                                } ?>"><?php echo __("Verify") ?>
+                        </button>
+            </form>
+
+            <div class="secondary-actions"
+                 style="display: flex; margin-top: 20px; align-content: center; justify-content: space-between; align-items: center;">
+                <?php if ($customer_skip_twofa == 1) { ?>
+                    <?php echo $formKey; ?>
+                    <div class="skipTwoFa_section">
+                        <form method="post" name="skip-twoFA-remind" action="<?php echo $formPostUrl; ?>">
+                            <?php echo $formKey; ?>
+                            <input type="hidden" name="skiptwofa" value="skip_twofa">
+                            <!-- Replace the button with a link -->
+                            <button class="skip_button" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>" type="submit">Remind Me Later
+                            </button>
+                        </form>
+                    </div>
+                <?php } ?>
+                <a href="#" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                    echo $popup_ui_values->popupBtnColor;
+                } else {
+                    echo "#ff8500";
+                } ?>" class="resend-link"><?php echo __("Resend Code") ?></a>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+
+        // Navigation functions
+        function OOS_previousStep() {
+            window.location.href = "?mooption=invokeInline&step=OOSMethodValidation&savestep=OOS";
+        }
+
+        function previousStep() {
+            window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+        }
+
+        function SMS_previousStep() {
+            window.location.href = "?mooption=invokeInline&step=OOSMethodValidation&savestep=OOS";
+        }
+
+        function redirectToLoginPage() {
+            const loginPageUrl = "<?php echo $loginPageUrl; ?>";
+            window.location.href = loginPageUrl;
+        }
+
+        // Set the redirect_to input value to the current page URL
+        window.onload = function () {
+            const redirectToInput = document.getElementById("redirect_to");
+            if (redirectToInput) {
+                redirectToInput.value = window.location;
+            }
+        };
+    </script>
+
+    </div>
+    </body>
+    <?php
+}
+
+function OOWMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length)
+{
+    ?>
+    <body style="background-size: 100% 100%; background-color: <?php if (isset($popup_ui_values->BgColor)) {
+        echo $popup_ui_values->BgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+
+    <!-- Customer Card Container -->
+    <div class="customer_card container_new" style="background-color: <?php
+    if (isset($popup_ui_values->popupBgColor)) {
+        echo $popup_ui_values->popupBgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+        <br>
+
+        <div class="card-description">
+            <!-- Phone Input Form-1 -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <input type="hidden" name="mopostoption" value="challenge">
+                <input type="hidden" id="redirect_to" name="redirect_to" value="">
+
+                <!-- Display the phone input form if no previous step -->
+                <div style="<?php echo isset($request['showdiv']) ? 'display: none;' : 'display: block;'; ?>">
+                    <div class="top_icon">
+                        <div class="back-button">
+                            <!-- If active method is 1, provide a link to login page, else use back functionality -->
+                            <?php if ($active_method_number == 1) { ?>
+                                <a href="<?php echo $loginPageUrl; ?>" class="back-button"
+                                   style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                       echo $popup_ui_values->popupBtnColor;
+                                   } else {
+                                       echo "#ff8500";
+                                   } ?>">← <?php echo __("Back") ?></a>
+                            <?php } else { ?>
+                                <a href="#" class="back-button"
+                                   style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                       echo $popup_ui_values->popupBtnColor;
+                                   } else {
+                                       echo "#ff8500";
+                                   } ?>" onclick="previousStep()">← <?php echo __("Back") ?></a>
+                            <?php } ?>
+                        </div>
+                        <!-- Help link -->
+
+                    </div>
+
+                    <!-- Title and Description -->
+                    <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                        echo $popup_ui_values->popupTextColor;
+                    } else {
+                        echo "black";
+                    } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+                    <p>To secure your account, please provide your phone number for two-factor authentication.</p>
+                    <br><br>
+
+                    <!-- Phone Number Input -->
+                    <div class="phone-input-container">
+                        <?php countrycode($popup_ui_values); ?>
+                        <input type="number" class="phone-number-input" placeholder="Enter your number" name="phone"
+                               required/>
+                    </div>
+                    <br>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn-primary"
+                            style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>" style=""><?php echo __("Send OTP") ?>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Passcode Verification Form -2 -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <input type="hidden" name="mopostoption" value="movalotp">
+                <input type="hidden" name="savestep" value="OOW">
+                <input type="hidden" id="Passcode" name="Passcode">
+
+                <!-- Display passcode verification if previous step exists -->
+                <div style="<?php echo isset($request['showdiv']) ? 'display: block;' : 'display: none;'; ?>">
+                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($request['phone'] ?? ''); ?>">
+                    <input type="hidden" name="countrycode"
+                           value="<?php echo htmlspecialchars($request['countrycode'] ?? ''); ?>">
+
+                    <div class="container_new" style="background-color: <?php
+                    if (isset($popup_ui_values->popupBgColor)) {
+                        echo $popup_ui_values->popupBgColor;
+                    } else {
+                        echo "white";
+                    }
+                    ?>">
+                        <div class="top_icon">
+                            <!-- Back button for SMS verification -->
+                            <a href="#" class="back-button"
+                               style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                   echo $popup_ui_values->popupBtnColor;
+                               } else {
+                                   echo "#ff8500";
+                               } ?>"
+                               onclick="previousStep()">← <?php echo __("Back") ?></a>
+
+                        </div>
+
+                        <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                            echo $popup_ui_values->popupTextColor;
+                        } else {
+                            echo "black";
+                        } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+
+                        <!-- Display messages (success or error) -->
+                        <div class="message_container"
+                             style="color: <?php echo $error ? '#721c24' : '#155724'; ?>; background-color:
+                             <?php echo $error ? '#f8d7da' : '#d4edda'; ?>; border: 0.1rem solid <?php echo $error ? '#f5c6cb' : '#c3e6cb'; ?>;">
+                            <?php if (isset($request['message']) && !$error): ?>
+                                <?php echo __($request['message']); ?>
+                            <?php elseif ($error): ?>
+                                <?php showerrormessage($popup_ui_values); ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- OTP Input -->
+                        <div class="input-group" id="moPass">
+                            <?php for ($i = 1; $i <= $otp_length; $i++): ?>
+                                <input type="text" maxlength="1" inputmode="numeric"
+                                       aria-label="Verification Code Digit <?php echo $i; ?>">
+                            <?php endfor; ?>
+                        </div>
+
+                        <!-- Device Remember Option if applicable -->
+                        <?php if ($is_device_based_enabled && $is_device_limit_exceeded): ?>
+                            <div class="customer_row" style="margin-top: 15px; margin-bottom: 10px;">
+                                <div class="col-sm-12">
+                                    <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                                           style="margin-right: 10px;">
+                                    <label for="rememberDevice"><?php echo __("Remember My Device") ?></label>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Verify Button -->
+                        <button class="btn-primary"
+                                style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                    echo $popup_ui_values->popupBtnColor;
+                                } else {
+                                    echo "#ff8500";
+                                } ?>"><?php echo __("Verify") ?>
+                        </button>
+
+                        <!-- Secondary Actions (Skip 2FA, Resend Code) -->
+                        <div class="secondary-actions"
+                             style="display: flex; margin-top: 20px; align-content: center; justify-content: space-between; align-items: center;">
+                            <?php if ($customer_skip_twofa == 1) { ?>
+                                <?php echo $formKey; ?>
+                                <div class="skipTwoFa_section">
+                                    <form method="post" name="skip-twoFA-remind" action="<?php echo $formPostUrl; ?>">
+                                        <?php echo $formKey; ?>
+                                        <input type="hidden" name="skiptwofa" value="skip_twofa">
+                                        <button class="skip_button"
+                                                style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                                    echo $popup_ui_values->popupBtnColor;
+                                                } else {
+                                                    echo "#ff8500";
+                                                } ?>" type="submit">Remind Me Later
+                                        </button>
+                                    </form>
+                                </div>
+                            <?php } ?>
+                            <a href="#" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>" class="resend-link"><?php echo __("Resend Code") ?></a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- JavaScript for Passcode Input -->
+            <script>
+
+                function previousStep() {
+                    window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+                }
+
+                function SMS_previousStep() {
+                    window.location.href = "?mooption=invokeInline&step=OOWMethodValidation&savestep=OOS";
+                }
+
+                function redirectToLoginPage() {
+                    const loginPageUrl = "<?php echo $loginPageUrl; ?>";
+                    window.location.href = loginPageUrl;
+                }
+
+                window.onload = function () {
+                    document.getElementById("redirect_to").value = window.location;
+                };
+            </script>
+        </div>
+    </div>
+    </body>
+    <?php
+}
+
+
+function OOEMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length)
+{
+    ?>
+    <body style="background-size: 100% 100%; background-color: <?php if (isset($popup_ui_values->BgColor)) {
+        echo $popup_ui_values->BgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+
+    <div class="customer_card container_new" style="background-color: <?php
+    if (isset($popup_ui_values->popupBgColor)) {
+        echo $popup_ui_values->popupBgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+        <div class="top_icon">
+            <div class="back-button">
+                <?php if ($active_method_number == 1) { ?>
+                    <!-- If active method number is 1, link to the login page -->
+                    <a href="<?php echo $loginPageUrl; ?>" class="back-button help-dropdown"
+                       style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                           echo $popup_ui_values->popupBtnColor;
+                       } else {
+                           echo "#ff8500";
+                       } ?>">← <?php echo __("Back") ?></a>
+                <?php } else { ?>
+                    <!-- Otherwise, call the previousStep function -->
+                    <a href="#" class="back-button help-dropdown"
+                       style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                           echo $popup_ui_values->popupBtnColor;
+                       } else {
+                           echo "#ff8500";
+                       } ?>;border:none;" onclick="previousStep()">← <?php echo __("Back") ?></a>
+                <?php } ?>
+            </div>
+            <a href="#" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                echo $popup_ui_values->popupBtnColor;
+            } else {
+                echo "#ff8500";
+            } ?>" class="help-dropdown">Help?</a>
+        </div>
+        <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+            echo $popup_ui_values->popupTextColor;
+        } else {
+            echo "black";
+        } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+
+        <div class="message_container"
+             style="color: <?php echo $error ? '#721c24' : '#155724'; ?>; background-color: <?php echo $error ? '#f8d7da' : '#d4edda'; ?>; border: 0.1rem solid <?php echo $error ? '#f5c6cb' : '#c3e6cb'; ?>;">
+            <?php if (isset($request['message']) && !$error): ?>
+                <?php echo __($request['message']); ?>
+            <?php elseif ($error): ?>
+                <?php showerrormessage($popup_ui_values); ?>
+            <?php endif; ?>
+        </div>
+
+        <div class="card-description">
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <input type="hidden" name="mopostoption" value="movalotp">
+                <input type="hidden" name="savestep" value="OOE">
+                <input type="hidden" id="Passcode" name="Passcode">
+
+                <div class="customer_row">
+                    <br>
+                    <div class="input-group" id="moPass">
+                        <?php for ($i = 1; $i <= $otp_length; $i++): ?>
+                            <input type="text" maxlength="1" inputmode="numeric"
+                                   aria-label="Verification Code Digit <?php echo $i; ?>">
+                        <?php endfor; ?>
+                    </div>
+                </div>
+
+                <?php if ($is_device_based_enabled && $is_device_limit_exceeded): ?>
+                    <div class="customer_row" style="margin-top: 15px; margin-bottom: 10px;">
+                        <div class="col-sm-12">
+                            <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                                   style="margin-right: 10px;">
+                            <label for="rememberDevice" style="font-weight: normal;"><?php echo __("Remember My Device") ?></label>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <br>
+                <button class="btn-primary" style="background-color: <?php
+                if (isset($popup_ui_values->popupBtnColor)) {
+                    echo $popup_ui_values->popupBtnColor;
+                } else {
+                    echo "#ff8500";
+                }
+                ?>"><?php echo __("Verify") ?>
+                </button>
+            </form>
+
+            <div class="secondary-actions"
+                 style="display: flex; margin-top: 20px; align-content: center; justify-content: space-between; align-items: center;">
+                <?php if ($customer_skip_twofa == 1) { ?>
+                    <?php echo $formKey; ?>
+                    <div class="skipTwoFa_section">
+                        <form method="post" name="skip-twoFA-remind" action="<?php echo $formPostUrl; ?>">
+                            <?php echo $formKey; ?>
+                            <input type="hidden" name="skiptwofa" value="skip_twofa">
+                            <!-- Replace the button with a link -->
+                            <button class="skip_button" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>" type="submit">Remind Me Later
+                            </button>
+                        </form>
+                    </div>
+                <?php } ?>
+                <a href="#" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                    echo $popup_ui_values->popupBtnColor;
+                } else {
+                    echo "#ff8500";
+                } ?>" class="resend-link"><?php echo __("Resend Code") ?></a>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="text/javascript">
+
+        function codeAddress() {
+            var redirectElement = document.getElementById("redirect_to");
+            if (redirectElement) {
+                redirectElement.value = window.location;
+            }
+        }
+
+        window.onload = codeAddress;
+
+        function previousStep() {
+            window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+        }
+
+    </script>
+
+    </body>
+    <?php
+}
+
+function MicrosoftAuthMethodValidation($formKey, $formPostUrl, $AuthUrl, $issuer, $QrcodeJS, $error, $active_method_number, $loginPageUrl, $popup_ui_values, $secret, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $request, $otp_length)
+{
+    // Check if the user is on the "add passcode" step
+    $isAddPasscodeStep = isset($request['addPasscode']) && $request['addPasscode'] == 'true';
+
+    if ($AuthUrl !== false) {
+        ?>
+        <body style="background-size: 100% 100%;background-color: <?php if (isset($popup_ui_values->BgColor)) {
+            echo $popup_ui_values->BgColor;
+        } else {
+            echo "white";
+        } ?> ">
+        <div class="customer_card container_new" style="background-color: <?php
+        if (isset($popup_ui_values->popupBgColor)) {
+            echo $popup_ui_values->popupBgColor;
+        } else {
+            echo "white";
+        }
+        ?>">
+            <!-- Check if it's Step 1 or Step 2 (Passcode) -->
+            <?php if (!$isAddPasscodeStep) { ?>
+
+                <!-- Step 1: Google Authenticator Setup -->
+                <div class="top_icon">
+                    <div class="back-button">
+                        <?php if ($active_method_number == 1) { ?>
+                            <form method="post" action="<?php echo $loginPageUrl; ?>">
+                                <a href="<?php echo $loginPageUrl; ?>" class="back-button" style="color: #ff8500; ">←
+                                    <?php echo __("Back") ?></a>
+                            </form>
+                        <?php } else { ?>
+                            <div class="back-button" onclick="previousStep()" type="button">← <?php echo __("Back") ?></div>
+                        <?php } ?>
+                    </div>
+                </div>
+                <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                    echo $popup_ui_values->popupTextColor;
+                } else {
+                    echo "black";
+                } ?>"><?php echo __("Set Up Microsoft Authenticator") ?></h2>
+                <div class="authenticator_steps"
+                     style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+                    <div class="card-description">
+
+
+                        <!-- Instructions for setting up Google Authenticator -->
+                        <ol style="list-style-type: none; padding-left: 0; margin-top: 20px;">
+
+                            <li style="display: flex; align-items: center;text-align:left">
+                                <i class="fas fa-download"
+                                   style="font-size: 1.5em; color: #ff8500; margin-right: 10px;"></i>
+                                <p style="color: #777; margin: 5px 0 0 25px;"><strong><?php echo __("Step 1:") ?></strong> <?php echo __("Download and open the") ?>
+                                     <b><?php echo __("Microsoft Authenticator") ?></b> <?php echo __("app on your device.") ?></p>
+
+                                </p>
+
+                            </li>
+                            <li style="display: flex; align-items: center; margin-top: 10px;text-align:left">
+                                <i class="fas fa-qrcode"
+                                   style="font-size: 1.5em; color: #ff8500; margin-right: 10px;"></i>
+                                <p style="color: #777; margin: 5px 0 0 25px;"><strong><?php echo __("Step 2:") ?></strong> <?php echo __("Scan the QR code below or manually enter the code into the app.") ?></p>
+                                </p>
+
+                            </li>
+                        </ol>
+                        <hr style="border: 1px solid #ddd; margin-top: 20px;">
+                    </div>
+                </div>
+
+                <div class="scanner_name_text"
+                     style="display: flex; align-items: center; justify-content: space-around; gap: 3%;">
+                    <div class="mo2f_gauth" id="displayGAQrCodeTour" style="background: white;"
+                         data-qrcode="<?php echo $AuthUrl; ?>"></div>
+                    <div id="qrcode"></div>
+                    <div class="scanner_text"
+                         style="background-color: #fff; padding: 5px; border-radius: 8px; text-align: center; color: #333; font-family: Arial, sans-serif; border: 2px dotted #ff8500;">
+                        <div style="position: relative;">
+                            <!-- Manual Entry Key with Copy Function -->
+                            <p onclick="copyKey()">
+                                <b>Manual Entry Key:</b>
+                                <span id="manualKey"><?php echo $secret; ?></span>
+                                <span id="copiedMessage">Copied!</span>
+                                <i class="fas fa-copy" onclick="copyKey()" title="Copy Key"></i>
+                            </p>
+                        </div>
+                        <h5 style="margin-top: 10px; color: #333;">App Name: <b
+                                style="color:#ff8500"><?php echo $issuer; ?></b></h5>
+                    </div>
+                </div>
+                <hr style="border: 1px solid #ddd; margin-top: 20px;">
+
+                <div class="authenticator_steps"
+                     style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+                    <div class="card-description">
+                        <ol style="list-style-type: none; padding-left: 0; margin-top: 20px;">
+                            <li style="display:flex;text-align:left">
+                                <div style="display: flex; align-items: center;">
+                                    <i class="fas fa-check"
+                                       style="font-size: 1.5em; color: #ff8500; margin-right: 10px;"></i>
+                                </div>
+                                <p style="color: #777; margin: 5px 0 0 25px;"><strong><?php echo __("Step 3:") ?></strong> <?php echo __("Once you get the OTP code on your") ?>
+                                    <b><?php echo __("Microsoft Authenticator") ?></b>, <?php echo __("click") ?> <b><?php echo __("Next") ?></b> <?php echo __("below and enter the code.") ?></p>
+                                </p>
+
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Form to go to next step -->
+                <form method="get" action="">
+                    <input type="hidden" name="mooption" value="invokeInline">
+                    <input type="hidden" name="step" value="MicrosoftAuthenticator">
+                    <input type="hidden" name="savestep" value="MicrosoftAuthenticator">
+                    <input type="hidden" name="addPasscode" value="true">
+                    <button type="submit" class="customer_btn btn-primary"
+                            style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>"><?php echo __("Next") ?>
+                    </button>
+                </form>
+
+                <!-- JavaScript QR code generation -->
+                <script src="<?php echo $QrcodeJS; ?>"></script>
+                <!-- update : getting issue with require in Hyva theme -->
+                <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+                <script>
+                jQuery(document).ready(function($) {
+                    new QRCode(document.getElementById("qrcode"), $('.mo2f_gauth').data('qrcode'));
+                });
+                </script>
+
+                <script type="text/javascript">
+                    // Go back to the previous step
+                    function previousStep() {
+                        window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+                    }
+
+                    // Copy the manual entry key to clipboard
+                    function copyKey() {
+                        const keyElement = document.getElementById('manualKey');
+                        const copiedMessage = document.getElementById('copiedMessage');
+
+                        // Copy the key to clipboard
+                        navigator.clipboard.writeText(keyElement.textContent)
+                            .then(() => {
+                                // Show "Copied!" message
+                                copiedMessage.classList.add('show');
+
+                                // Hide it after 2 seconds
+                                setTimeout(() => {
+                                    copiedMessage.classList.remove('show');
+                                }, 800);
+                            })
+                            .catch(err => {
+                                console.error('Failed to copy the key: ', err);
+                            });
+                    }
+                </script>
+            <?php } else { ?>
+            <!-- Step 2: Enter Passcode (OTP) -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <input type="hidden" name="mopostoption" value="movalotp">
+                <input type="hidden" name="savestep" value="MicrosoftAuthenticator">
+                <input type="hidden" id="Passcode" name="Passcode">
+
+                <div class="container_new" style="background-color: <?php
+                if (isset($popup_ui_values->popupBgColor)) {
+                    echo $popup_ui_values->popupBgColor;
+                } else {
+                    echo "white";
+                }
+                ?>">
+                    <div class="top_icon">
+                        <div class="back-button" onclick="authenticator_verify_previousStep()" type="button"
+                             style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                 echo $popup_ui_values->popupBtnColor;
+                             } else {
+                                 echo "#ff8500";
+                             } ?>">←
+                            <?php echo __("Back") ?>
+                        </div>
+
+                    </div>
+                    <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                        echo $popup_ui_values->popupTextColor;
+                    } else {
+                        echo "black";
+                    } ?>"><?php echo __("Enter Authenticator Passcode") ?></h2>
+
+                    <!-- Error or Success Message -->
+                    <div class="message_container" style="
+                        color: <?php echo $error ? '#721c24' : '#155724'; ?>;
+                        background-color: <?php echo $error ? '#f8d7da' : '#d4edda'; ?>;
+                        border: 0.1rem solid <?php echo $error ? '#f5c6cb' : '#c3e6cb'; ?>;">
+                        <?php if ($error): ?>
+                            <?php showerrormessage($popup_ui_values); ?>
+                        <?php else: ?>
+                            <div class="success_message" style="--success-message-text:
+                            <?php echo isset($popup_ui_values->popup_ui_success_text_color) ? htmlspecialchars($popup_ui_values->popup_ui_success_text_color) : '#155724'; ?>;">
+                                <?php echo __("Enter the code you scanned from the Microsoft Authenticator app to complete the validation.") ?>
+                                
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <br>
+                    <div class="input-group" id="moPass">
+                        <?php for ($i = 1; $i <= $otp_length; $i++): ?>
+                            <!-- Dynamic OTP Input Fields -->
+                            <input type="text" maxlength="1" inputmode="numeric"
+                                   aria-label="Verification Code Digit <?php echo $i; ?>" class="otp-input">
+                        <?php endfor; ?>
+                    </div>
+
+                    <!-- Device Remember Option (only if limits exceeded) -->
+                    <?php if ($is_device_based_enabled && $is_device_limit_exceeded): ?>
+                        <div class="customer_row" style="margin-top: 15px; margin-bottom: 10px;">
+                            <div class="col-sm-12">
+                                <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                                       style="margin-right: 10px;">
+                                <label for="rememberDevice"><?php echo __("Remember My Device") ?></label>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <br>
+                    <button class="btn-primary"
+                            style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>"><?php echo __("Verify") ?>
+                    </button>
+            </form>
+
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <!-- Skip for Now Option -->
+                <div class="secondary-actions" style="display: flex; margin-top: 10px;">
+                    <?php if ($customer_skip_twofa == 1) { ?>
+                        <?php echo $formKey; ?>
+                        <div class="skipTwoFa_section">
+                            <form method="post" name="skip-twoFA-remind" action="<?php echo $formPostUrl; ?>">
+                                <?php echo $formKey; ?>
+                                <input type="hidden" name="skiptwofa" value="skip_twofa">
+                                <button class="skip_button"
+                                        style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                            echo $popup_ui_values->popupBtnColor;
+                                        } else {
+                                            echo "#ff8500";
+                                        } ?>" type="submit">Remind Me Later
+                                </button>
+                            </form>
+                        </div>
+                    <?php } ?>
+                </div>
+        </div>
+        </form>
+
+        <script type="text/javascript">
+
+            // Handle back to previous step
+            function authenticator_verify_previousStep() {
+                window.location.href = "?mooption=invokeInline&step=MicrosoftAuthenticator";
+            }
+        </script>
+        <?php } ?>
+        </div>
+        </body>
+        <?php
+    } else {
+        print_r("Something went wrong! Please try again");
+        ?>
+        <button class="default-btn" onclick="previousStep()" type="button"><?php echo __("Back") ?></button>
+        <br><br>
+        <script type="text/javascript">
+            function previousStep() {
+                window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+            }
+
+            function codeAddress() {
+                var redirectElement = document.getElementById("redirect_to");
+                if (redirectElement) {
+                    redirectElement.value = window.location;
+                }
+            }
+
+            window.onload = codeAddress;
+        </script>
+        <?php
+    }
+}
+
+function GAMethodValidation($formKey, $formPostUrl, $AuthUrl, $issuer, $QrcodeJS, $error, $active_method_number, $loginPageUrl, $popup_ui_values, $secret, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $request, $otp_length)
+{
+    // Check if the user is on the "add passcode" step
+    $isAddPasscodeStep = isset($request['addPasscode']) && $request['addPasscode'] == 'true';
+
+    if ($AuthUrl !== false) {
+        ?>
+        <body style="background-size: 100% 100%;background-color: <?php if (isset($popup_ui_values->BgColor)) {
+            echo $popup_ui_values->BgColor;
+        } else {
+            echo "white";
+        } ?> ">
+        <div class="customer_card container_new" style="background-color: <?php
+        if (isset($popup_ui_values->popupBgColor)) {
+            echo $popup_ui_values->popupBgColor;
+        } else {
+            echo "white";
+        }
+        ?>">
+            <!-- Check if it's Step 1 or Step 2 (Passcode) -->
+            <?php if (!$isAddPasscodeStep) { ?>
+
+                <!-- Step 1: Google Authenticator Setup -->
+                <div class="top_icon">
+                    <div class="back-button">
+                        <?php if ($active_method_number == 1) { ?>
+                            <form method="post" action="<?php echo $loginPageUrl; ?>">
+                                <a href="<?php echo $loginPageUrl; ?>" class="back-button" style="color: #ff8500; ">←
+                                    <?php echo __("Back") ?></a>
+                            </form>
+                        <?php } else { ?>
+                            <div class="back-button" onclick="previousStep()" type="button">← <?php echo __("Back") ?></div>
+                        <?php } ?>
+                    </div>
+                </div>
+                <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                    echo $popup_ui_values->popupTextColor;
+                } else {
+                    echo "black";
+                } ?>"><?php echo __("Set Up Google Authenticator") ?></h2>
+                <div class="authenticator_steps"
+                     style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+                    <div class="card-description">
+
+
+                        <!-- Instructions for setting up Google Authenticator -->
+                        <ol style="list-style-type: none; padding-left: 0; margin-top: 20px;">
+
+                            <li style="display: flex; align-items: center;text-align:left">
+                                <i class="fas fa-download"
+                                   style="font-size: 1.5em; color: #ff8500; margin-right: 10px;"></i>
+                                <p style="color: #777; margin: 5px 0 0 25px;"><strong><?php echo __("Step 1:") ?></strong> <?php echo __("Download and open the") ?>
+                                     <b><?php echo __("Google Authenticator") ?></b> <?php echo __("app on your device."); ?></p>
+
+                            </li>
+                            <li style="display: flex; align-items: center; margin-top: 10px;text-align:left">
+                                <i class="fas fa-qrcode"
+                                   style="font-size: 1.5em; color: #ff8500; margin-right: 10px;"></i>
+                                <p style="color: #777; margin: 5px 0 0 25px;"><strong><?php echo __("Step 2:") ?></strong> <?php echo __("Scan the QR code below or manually enter the code into the app."); ?></p>
+                            </li>
+                        </ol>
+                        <hr style="border: 1px solid #ddd; margin-top: 20px;">
+                    </div>
+                </div>
+
+                <div class="scanner_name_text"
+                     style="display: flex; align-items: center; justify-content: space-around; gap: 3%;">
+                    <div class="mo2f_gauth" id="displayGAQrCodeTour" style="background: white;"
+                         data-qrcode="<?php echo $AuthUrl; ?>"></div>
+                    <div id="qrcode"></div>
+                    <div class="scanner_text"
+                         style="background-color: #fff; padding: 5px; border-radius: 8px; text-align: center; color: #333; font-family: Arial, sans-serif; border: 2px dotted #ff8500;">
+                        <div style="position: relative;">
+                            <!-- Manual Entry Key with Copy Function -->
+                            <p onclick="copyKey()">
+                                <b>Manual Entry Key:</b>
+                                <span id="manualKey"><?php echo $secret; ?></span>
+                                <span id="copiedMessage">Copied!</span>
+                                <i class="fas fa-copy" onclick="copyKey()" title="Copy Key"></i>
+                            </p>
+                        </div>
+                        <h5 style="margin-top: 10px; color: #333;">App Name: <b
+                                style="color:#ff8500"><?php echo $issuer; ?></b></h5>
+                    </div>
+                </div>
+                <hr style="border: 1px solid #ddd; margin-top: 20px;">
+
+                <div class="authenticator_steps"
+                     style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+                    <div class="card-description">
+                        <ol style="list-style-type: none; padding-left: 0; margin-top: 20px;">
+                            <li style="display:flex;text-align:left">
+                                <div style="display: flex; align-items: center;">
+                                    <i class="fas fa-check"
+                                       style="font-size: 1.5em; color: #ff8500; margin-right: 10px;"></i>
+                                </div>
+                                <p style="color: #777; margin: 5px 0 0 25px;"><strong><?php echo __("Step 3:") ?></strong> <?php echo __("Once you get the OTP code on your") ?>
+                                    <b><?php echo __("Google Authenticator") ?></b>, <?php echo __("click") ?> <b><?php echo __("Next") ?></b> <?php echo __("below and enter the code.") ?>
+                                    </p>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Form to go to next step -->
+                <form method="get" action="">
+                    <input type="hidden" name="mooption" value="invokeInline">
+                    <input type="hidden" name="step" value="GAMethodValidation">
+                    <input type="hidden" name="savestep" value="GoogleAuthenticator">
+                    <input type="hidden" name="addPasscode" value="true">
+                    <button type="submit" class="customer_btn btn-primary"
+                            style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>"><?php echo __("Next") ?>
+                    </button>
+                </form>
+
+                <!-- JavaScript QR code generation -->
+                <script src="<?php echo $QrcodeJS; ?>"></script>
+                <!-- update : getting issue with require in Hyva theme -->
+                <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+                <script>
+                jQuery(document).ready(function($) {
+                    new QRCode(document.getElementById("qrcode"), $('.mo2f_gauth').data('qrcode'));
+                });
+                </script>
+
+                <script type="text/javascript">
+                    // Go back to the previous step
+                    function previousStep() {
+                        window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+                    }
+
+                    // Copy the manual entry key to clipboard
+                    function copyKey() {
+                        const keyElement = document.getElementById('manualKey');
+                        const copiedMessage = document.getElementById('copiedMessage');
+
+                        // Copy the key to clipboard
+                        navigator.clipboard.writeText(keyElement.textContent)
+                            .then(() => {
+                                // Show "Copied!" message
+                                copiedMessage.classList.add('show');
+
+                                // Hide it after 2 seconds
+                                setTimeout(() => {
+                                    copiedMessage.classList.remove('show');
+                                }, 800);
+                            })
+                            .catch(err => {
+                                console.error('Failed to copy the key: ', err);
+                            });
+                    }
+                </script>
+            <?php } else { ?>
+            <!-- Step 2: Enter Passcode (OTP) -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <input type="hidden" name="mopostoption" value="movalotp">
+                <input type="hidden" name="savestep" value="GoogleAuthenticator">
+                <input type="hidden" id="Passcode" name="Passcode">
+
+                <div class="container_new" style="background-color: <?php
+                if (isset($popup_ui_values->popupBgColor)) {
+                    echo $popup_ui_values->popupBgColor;
+                } else {
+                    echo "white";
+                }
+                ?>">
+                    <div class="top_icon">
+                        <div class="back-button" onclick="authenticator_verify_previousStep()" type="button"
+                             style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                 echo $popup_ui_values->popupBtnColor;
+                             } else {
+                                 echo "#ff8500";
+                             } ?>">←
+                            <?php echo __("Back") ?>
+                        </div>
+
+                    </div>
+                    <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                        echo $popup_ui_values->popupTextColor;
+                    } else {
+                        echo "black";
+                    } ?>"><?php echo __("Enter Authenticator Passcode") ?></h2>
+
+                    <!-- Error or Success Message -->
+                    <div class="message_container" style="
+                        color: <?php echo $error ? '#721c24' : '#155724'; ?>;
+                        background-color: <?php echo $error ? '#f8d7da' : '#d4edda'; ?>;
+                        border: 0.1rem solid <?php echo $error ? '#f5c6cb' : '#c3e6cb'; ?>;">
+                        <?php if ($error): ?>
+                            <?php showerrormessage($popup_ui_values); ?>
+                        <?php else: ?>
+                            <div class="success_message" style="--success-message-text:
+                            <?php echo isset($popup_ui_values->popup_ui_success_text_color) ? htmlspecialchars($popup_ui_values->popup_ui_success_text_color) : '#155724'; ?>;">
+                                <?php echo __("Enter the code you scanned from the Google Authenticator app to complete the validation.") ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <br>
+                    <div class="input-group" id="moPass">
+                        <?php for ($i = 1; $i <= $otp_length; $i++): ?>
+                            <!-- Dynamic OTP Input Fields -->
+                            <input type="text" maxlength="1" inputmode="numeric"
+                                   aria-label="Verification Code Digit <?php echo $i; ?>" class="otp-input">
+                        <?php endfor; ?>
+                    </div>
+
+                    <!-- Device Remember Option (only if limits exceeded) -->
+                    <?php if ($is_device_based_enabled && $is_device_limit_exceeded): ?>
+                        <div class="customer_row" style="margin-top: 15px; margin-bottom: 10px;">
+                            <div class="col-sm-12">
+                                <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                                       style="margin-right: 10px;">
+                                <label for="rememberDevice"><?php echo __("Remember My Device") ?></label>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <br>
+                    <button class="btn-primary"
+                            style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>"><?php echo __("Verify") ?>
+                    </button>
+            </form>
+
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <!-- Skip for Now Option -->
+                <div class="secondary-actions" style="display: flex; margin-top: 10px;">
+                    <?php if ($customer_skip_twofa == 1) { ?>
+                        <?php echo $formKey; ?>
+                        <div class="skipTwoFa_section">
+                            <form method="post" name="skip-twoFA-remind" action="<?php echo $formPostUrl; ?>">
+                                <?php echo $formKey; ?>
+                                <input type="hidden" name="skiptwofa" value="skip_twofa">
+                                <button class="skip_button"
+                                        style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                            echo $popup_ui_values->popupBtnColor;
+                                        } else {
+                                            echo "#ff8500";
+                                        } ?>" type="submit">Remind Me Later
+                                </button>
+                            </form>
+                        </div>
+                    <?php } ?>
+                </div>
+        </div>
+        </form>
+
+        <script type="text/javascript">
+
+            // Handle back to previous step
+            function authenticator_verify_previousStep() {
+                window.location.href = "?mooption=invokeInline&step=GAMethodValidation";
+            }
+        </script>
+        <?php } ?>
+        </div>
+        </body>
+        <?php
+    } else {
+        print_r("Something went wrong! Please try again");
+        ?>
+        <button class="default-btn" onclick="previousStep()" type="button">Back</button>
+        <br><br>
+        <script type="text/javascript">
+            function previousStep() {
+                window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+            }
+
+            function codeAddress() {
+                var redirectElement = document.getElementById("redirect_to");
+                if (redirectElement) {
+                    redirectElement.value = window.location;
+                }
+            }
+
+            window.onload = codeAddress;
+        </script>
+        <?php
+    }
+}
+
+
+function OOSEMethodValidation($formKey, $formPostUrl, $error, $request, $active_method_number, $loginPageUrl, $popup_ui_values, $customer_skip_twofa, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length, $redirectUrl)
+{
+    ?>
+    <body style="background-size: 100% 100%;background-color: <?php if (isset($popup_ui_values->BgColor)) {
+        echo $popup_ui_values->BgColor;
+    } else {
+        echo "white";
+    } ?> ">
+    <div class="customer_card container_new" style="background-color: <?php if (isset($popup_ui_values->popupBgColor)) {
+        echo $popup_ui_values->popupBgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+        <br>
+
+        <div class="card-description">
+            <!-- First Form: Send OTP -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <div style="display: <?php echo isset($request['showdiv']) ? 'none' : 'block'; ?>;">
+                    <div class="top_icon">
+                        <div class="back-button">
+                            <?php if ($active_method_number == 1) { ?>
+                                <!-- If active method number is 1, link to the login page -->
+                                <a href="<?php echo $loginPageUrl; ?>" class="back-button"
+                                   style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                       echo $popup_ui_values->popupBtnColor;
+                                   } else {
+                                       echo "#ff8500";
+                                   } ?>">← Back</a>
+                            <?php } else { ?>
+                                <!-- Otherwise, call the previousStep function -->
+                                <div class="back-button"
+                                     style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                         echo $popup_ui_values->popupBtnColor;
+                                     } else {
+                                         echo "#ff8500";
+                                     } ?>" onclick="previousStep()">← Back
+                                </div>
+                            <?php } ?>
+                        </div>
+
+                    </div>
+                    <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                        echo $popup_ui_values->popupTextColor;
+                    } else {
+                        echo "black";
+                    } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+                    <p>To secure your account, please verify your identity by providing your phone number and email
+                        address for two-factor authentication.</p>
+
+                    <input type="hidden" name="mopostoption" value="challenge">
+
+                    <div class="customer_row">
+                        <br>
+                        <div class="phone-input-container"
+                             style="display: flex; align-content: center; justify-content: center; align-items: center; gap: 3%;">
+                            <!-- Country Code Dropdown -->
+                            <?php countrycode($popup_ui_values); ?>
+
+                            <!-- Phone Number Input -->
+                            <input type="number" class="phone-number-input" placeholder="Enter your number" name="phone"
+                                   required/>
+                        </div>
+
+                        <div
+                            style="display: flex; align-items: center; gap: 12%; width: 100%; justify-content: center;">
+                            <label class="col-sm-4">Email:</label>
+                            <div class="col-sm-8">
+                                <input type="hidden" name="email" value="<?php echo $request['useremail'] ?? ''; ?>">
+                                <input type="text"
+                                       style="background:white; color: '#000'; border: none; border-bottom: 2px solid #ff8500; width: 120%;"
+                                       class="method-input-box" placeholder="Enter your email"
+                                       value="<?php echo $request['useremail'] ?? ''; ?>" name="email" disabled/>
+                            </div>
+                            <input type="hidden" id="redirect_to" name="redirect_to" value="">
+                        </div>
+                        <br>
+                        <input type="hidden" name="miniorangetfa_method" value="OOSE">
+                        <button class="customer_btn btn-primary"
+                                style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                    echo $popup_ui_values->popupBtnColor;
+                                } else {
+                                    echo "#ff8500";
+                                } ?>" type="submit">Send OTP
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Second Form: Verify OTP -->
+            <form method="post" action="<?php echo $formPostUrl; ?>">
+                <?php echo $formKey; ?>
+                <div style="display: <?php echo isset($request['showdiv']) ? 'block' : 'none'; ?>;">
+                    <input type="hidden" name="mopostoption" value="movalotp">
+                    <input type="hidden" name="savestep" value="OOSE">
+                    <input type="hidden" id="Passcode" name="Passcode">
+                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($request['phone'] ?? ''); ?>">
+                    <input type="hidden" name="countrycode"
+                           value="<?php echo htmlspecialchars($request['countrycode'] ?? ''); ?>">
+
+                    <div class="container_new"
+                         style="background-color: <?php if (isset($popup_ui_values->popupBgColor)) {
+                             echo $popup_ui_values->popupBgColor;
+                         } else {
+                             echo "white";
+                         } ?>">
+                        <div class="top_icon">
+                            <div class="back-button">
+                                <?php
+                                if ($active_method_number == 1 && isset($request['sendOTP_directly']) && $request['sendOTP_directly'] == 1) { ?>
+                                    <!-- If active method number is 1, link to the login page -->
+                                    <a href="<?php echo $loginPageUrl; ?>" class="back-button"
+                                       style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                           echo $popup_ui_values->popupBtnColor;
+                                       } else {
+                                           echo "#ff8500";
+                                       } ?>">← Back</a>
+                                    <?php
+                                } elseif ($active_method_number > 1) { ?>
+                                    <!-- If active method number is greater than 1, link to the previous step -->
+                                    <a class="back-button"
+                                       style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                           echo $popup_ui_values->popupBtnColor;
+                                       } else {
+                                           echo "#ff8500";
+                                       } ?>" onclick="previousStep()">← Back</a>
+                                    <?php
+                                } else { ?>
+                                    <!-- Otherwise, call the OOSE_previousStep function -->
+                                    <div class="back-button"
+                                         style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                             echo $popup_ui_values->popupBtnColor;
+                                         } else {
+                                             echo "#ff8500";
+                                         } ?>" onclick="previousStep()">← Back
+                                    </div>
+                                <?php } ?>
+                            </div>
+                        </div>
+                        <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                            echo $popup_ui_values->popupTextColor;
+                        } else {
+                            echo "black";
+                        } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+
+                        <div class="message_container"
+                             style="color: <?php echo $error ? '#721c24' : '#155724'; ?>; background-color: <?php echo $error ? '#f8d7da' : '#d4edda'; ?>; border: 0.1rem solid <?php echo $error ? '#f5c6cb' : '#c3e6cb'; ?>;">
+                            <?php if (isset($request['message']) && !$error): ?>
+                                <?php echo __($request['message']); ?>
+                            <?php elseif ($error): ?>
+                                <?php showerrormessage($popup_ui_values); ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <br>
+                        <div class="input-group" id="moPass">
+                            <?php for ($i = 1; $i <= $otp_length; $i++): ?>
+                                <input type="text" maxlength="1" inputmode="numeric"
+                                       aria-label="Verification Code Digit <?php echo $i; ?>">
+                            <?php endfor; ?>
+                        </div>
+
+                        <?php if ($is_device_based_enabled && $is_device_limit_exceeded): ?>
+                            <div class="customer_row" style="margin-top: 15px; margin-bottom: 10px;">
+                                <div class="col-sm-12">
+                                    <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                                           style="margin-right: 10px;">
+                                    <label for="rememberDevice"><?php echo __("Remember My Device") ?></label>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                        <br>
+                        <button class="customer_btn btn-primary"
+                                style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                    echo $popup_ui_values->popupBtnColor;
+                                } else {
+                                    echo "#ff8500";
+                                } ?>" type="submit"><?php echo __("Verify") ?>
+                        </button>
+
+            </form>
+
+            <div class="secondary-actions"
+                 style="display: flex; margin-top: 20px; align-content: center; justify-content: space-between; align-items: center;">
+                <?php if ($customer_skip_twofa == 1) { ?>
+                    <?php echo $formKey; ?>
+                    <div class="skipTwoFa_section">
+                        <form method="post" name="skip-twoFA-remind" action="<?php echo $formPostUrl; ?>">
+                            <?php echo $formKey; ?>
+                            <input type="hidden" name="skiptwofa" value="skip_twofa">
+                            <!-- Replace the button with a link -->
+                            <button class="skip_button" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                echo $popup_ui_values->popupBtnColor;
+                            } else {
+                                echo "#ff8500";
+                            } ?>" type="submit">Remind Me Later
+                            </button>
+                        </form>
+                    </div>
+                <?php } ?>
+                <a href="#" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                    echo $popup_ui_values->popupBtnColor;
+                } else {
+                    echo "#ff8500";
+                } ?>" class="resend-link"><?php echo __("Resend Code") ?></a>
+            </div>
+
+        </div>
+    </div>
+    </div>
+    </div>
+
+    <script type="text/javascript">
+        // Redirects to the previous step in the process
+        function previousStep() {
+            window.location.href = "?mooption=invokeInline&step=ChooseMFAMethod";
+        }
+
+        // Redirects to the OOSE previous step
+        function OOSE_previousStep() {
+            window.location.href = "?mooption=invokeInline&step=OOSEMethodValidation&savestep=OOSE";
+        }
+
+        // Updates the hidden "Passcode" field based on OTP input values
+        document.getElementById("redirect_to").value = window.location;
+    </script>
+    </body>
+    <?php
+
+}
+
+
+function InvalidRequest()
+{
+    ?>
+    <div class="container" style="background: #f5f5f5">
+        <div class="row">
+            <div class="cards">
+                <div class="card" style="background-color:white;"
+                <div class="card-title">
+                    <div class="col-sm-12">
+                        <center>Invalid Request</center>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <?php
+}
+
+function ChooseMFAMethod($formKey, $activeMethods, $tfaArray, $formPostUrl, $loginPageUrl, $popup_ui_values, $customer_skip_twofa)
+{
+    // Define available MFA methods
+    $methods = [
+        'GoogleAuthenticator' => [
+            'icon' => '<i class="fas fa-qrcode"></i>',
+            'name' => 'Google Authenticator',
+            'desc' => __('Authenticator App')
+        ],
+        'MicrosoftAuthenticator' => [
+            'icon' => '<i class="fas fa-qrcode"></i>',
+            'name' => 'Microsoft Authenticator',
+            'desc' => __('Authenticator App')
+        ],
+        'OOS' => [
+            'icon' => '<i class="fas fa-mobile-alt"></i>',
+            'name' => 'SMS',
+            'desc' => __('Send an SMS code to ***-***-99')
+        ],
+        'OOE' => [
+            'icon' => '<i class="fas fa-envelope"></i>',
+            'name' => 'Email',
+            'desc' => __('Send OTP to your email')
+        ],
+        'OOSE' => [
+            'icon' => '<i class="fas fa-shield-alt"></i>',
+            'name' => 'Email + SMS',
+            'desc' => __('Send OTP to both email and SMS')
+        ],
+        'OOW' => [
+            'icon' => '<i class="fab fa-whatsapp"></i>',
+            'name' => 'WhatsApp',
+            'desc' => __('Send code to WhatsApp ***-***-99')
+        ]
+    ];
+    ?>
+    <body style="background-size:cover;background-color: <?php if (isset($popup_ui_values->BgColor)) {
+        echo $popup_ui_values->BgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+    <div class="auth-container container_new" style="background-color: <?php
+    if (isset($popup_ui_values->popupBgColor)) {
+        echo $popup_ui_values->popupBgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+        <!-- Top section with Back button and Help link -->
+        <div class="top_icon">
+            <a href="<?php echo $loginPageUrl; ?>" class="back-button"
+               style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                   echo $popup_ui_values->popupBtnColor;
+               } else {
+                   echo "#ff8500";
+               } ?>">← <?php echo __("Back") ?></a>
+
+        </div>
+
+        <!-- Heading and instructions -->
+        <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+            echo $popup_ui_values->popupTextColor;
+        } else {
+            echo "black";
+        } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+        <p><?php echo __("Choose one of these methods to log in") ?></p>
+
+        <!-- Form for selecting MFA method -->
+        <form method="post" action="<?php print_r($formPostUrl); ?>" id="mfa-form">
+            <?php echo $formKey; ?>
+            <input type="hidden" name="mopostoption" value="method">
+            <input type="hidden" name="miniorangetfa_method" id="miniorangetfa_method" value="">
+
+            <!-- Wrapper for all available authentication methods -->
+            <div class="auth-methods-wrapper" style="background-color: ; border-radius: 2px;">
+                <?php 
+                foreach ($activeMethods as $value): 
+                ?>
+                    <?php if (isset($methods[$value])): ?>
+                        <!-- Method card with icon, name, and description -->
+                        <div class="auth-method" data-method="<?php echo $value; ?>" onclick="selectMethod(this)">
+                            <?php echo $methods[$value]['icon']; ?>
+                            <div class="method-info">
+                                <p class="method-name"><?php echo htmlspecialchars($methods[$value]['name']); ?></p>
+                                <p class="method-desc"><?php echo htmlspecialchars($methods[$value]['desc']); ?></p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+
+            <br>
+            <!-- Button to confirm selection -->
+            <button class="btn-primary" style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                echo $popup_ui_values->popupBtnColor;
+            } else {
+                echo "#ff8500";
+            } ?>" type="submit"><?php echo __("Confirm Selection") ?>
+            </button>
+        </form>
+
+        <!-- Skip for Now Option -->
+        <div class="secondary-actions" style="display: flex; margin-top: 3rem;">
+            <?php if ($customer_skip_twofa == 1) { ?>
+                <?php echo $formKey; ?>
+                <div class="skipTwoFa_section">
+                    <form method="post" name="skip-twoFA-remind" action="<?php echo $formPostUrl; ?>">
+                        <?php echo $formKey; ?>
+                        <input type="hidden" name="skiptwofa" value="skip_twofa">
+                        <button class="skip_button"
+                                style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                                    echo $popup_ui_values->popupBtnColor;
+                                } else {
+                                    echo "#ff8500";
+                                } ?>" type="submit">Remind Me Later
+                        </button>
+                    </form>
+                </div>
+            <?php } ?>
+        </div>
+
+        <script>
+            // Function to handle going back to the previous page
+            function goBack() {
+                window.history.back();
+            }
+
+            // Function to handle method selection by the user
+            function selectMethod(element) {
+                // Remove 'selected' class from all methods
+                var methods = document.querySelectorAll('.auth-method');
+                methods.forEach(function (method) {
+                    method.classList.remove('selected');
+                });
+
+                // Add 'selected' class to the clicked method
+                element.classList.add('selected');
+
+                // Set the selected method's value to the hidden input
+                var selectedMethod = element.getAttribute('data-method');
+                document.getElementById('miniorangetfa_method').value = selectedMethod;
+            }
+
+            // Add event listener to ensure a method is selected before form submission
+            document.getElementById('mfa-form').addEventListener('submit', function (event) {
+                // Get the value of the hidden input that stores the selected method
+                var selectedMethod = document.getElementById('miniorangetfa_method').value;
+
+                // If no method is selected, prevent form submission and show an error message
+                if (!selectedMethod) {
+                    event.preventDefault(); // Prevent form submission
+                    alert('Please select a method to proceed.'); // Show error message
+                }
+            });
+        </script>
+    </body>
+    </html>
+    <?php
+}
+
+
+function InvokeUserTFA($formKey, $formPostUrl, $loginPageUrl, $error, $request, $show_kba_button, $popup_ui_values, $is_device_based_enabled, $is_device_limit_exceeded, $otp_length, $adminEmail)
+{
+    ?>
+    <body style="background-size: 100% 100%;background-color: <?php if (isset($popup_ui_values->BgColor)) {
+        echo $popup_ui_values->BgColor;
+    } else {
+        echo "white";
+    } ?> ">
+    <div class="container_new" style="background-color: <?php
+    if (isset($popup_ui_values->popupBgColor)) {
+        echo $popup_ui_values->popupBgColor;
+    } else {
+        echo "white";
+    }
+    ?>">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <a href="<?php echo $loginPageUrl; ?>" class="back-button"
+               style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                   echo $popup_ui_values->popupBtnColor;
+               } else {
+                   echo "#ff8500";
+               } ?>">← <?php echo __("Back") ?></a>
+           
+        </div>
+
+        <form method="post" action="<?php echo $formPostUrl; ?>">
+            <?php echo $formKey; ?>
+            <input type="hidden" name="mopostoption" value="uservalotp">
+            <input type="hidden" id="Passcode" name="Passcode">
+            <h2 style="font-weight: bold;color: <?php if (isset($popup_ui_values->popupTextColor)) {
+                echo $popup_ui_values->popupTextColor;
+            } else {
+                echo "black";
+            } ?>"><?php echo __("Two-Factor Authentication") ?></h2>
+
+            <div class="message_container" style="color: <?php echo $error ? '#721c24' : '#155724'; ?>;
+                background-color: <?php echo $error ? '#f8d7da' : '#d4edda'; ?>;
+                border: 0.1rem solid <?php echo $error ? '#f5c6cb' : '#c3e6cb'; ?>;">
+                <?php if (isset($request["message"]) && !$error): ?>
+                    <?php echo($request["message"]); ?>
+                <?php elseif (isset($request['active_method']) && $request['active_method'] == 'GoogleAuthenticator'): ?>
+                    <?php echo __("Enter the code from the Google Authenticator app to complete the validation.") ?>
+                <?php elseif (isset($request['active_method']) && $request['active_method'] == 'MicrosoftAuthenticator'): ?>
+                    <?php echo __("Enter the code from the Microsoft Authenticator app to complete the validation.") ?>
+                <?php elseif (!$error): ?>
+                    <?php echo __("Enter OTP sent to") ?>
+                    <?php echo isset($request['active_method']) ? htmlspecialchars($request['active_method']) : ''; ?>
+                <?php elseif ($error): ?>
+                    <?php showerrormessage($popup_ui_values); ?>
+                <?php endif; ?>
+            </div>
+
+            <div class="input-group" id="moPass">
+                <?php for ($i = 1; $i <= $otp_length; $i++): ?>
+                    <input type="text" maxlength="1" inputmode="numeric"
+                           aria-label="Verification Code Digit <?php echo $i; ?>">
+                <?php endfor; ?>
+            </div>
+
+            <?php if ($is_device_based_enabled && $is_device_limit_exceeded): ?>
+                <div style="margin-top: 15px; margin-bottom: 10px;" class="col-sm-12">
+                    <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                           style="margin-right: 10px;">
+                    <label for="rememberDevice" style="font-weight: normal;"><?php echo __("Remember My Device") ?></label>
+                </div>
+            <?php endif; ?>
+            <br>
+
+            <button class="btn-primary" style="background-color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                echo $popup_ui_values->popupBtnColor;
+            } else {
+                echo "#ff8500";
+            } ?>" type="submit"><?php echo __("Verify") ?>
+            </button>
+
+        </form>
+        <div class="secondary-actions"
+             style="display: flex; margin-top: 20px; align-items: center; justify-content: space-between;">
+            <?php
+            // Only show "Resend Code" if not using an Authenticator app
+            if (
+                !isset($request["active_method"]) ||
+                (
+                    $request["active_method"] != 'GoogleAuthenticator' &&
+                    $request["active_method"] != 'MicrosoftAuthenticator'
+                )
+            ): ?>
+                <a href="#" style="color:<?php if (isset($popup_ui_values->popupBtnColor)) {
+                    echo $popup_ui_values->popupBtnColor;
+                } else {
+                    echo "#ff8500";
+                } ?>" class="resend-link"><?php echo __("Resend Code") ?></a>
+            <?php endif; ?>
+        </div>
+
+        <?php if ($show_kba_button == 1): ?>
+            <br>
+            <a href="<?php echo $formPostUrl; ?>/kba?&invoke_kba_validate=invoke_kba_validate">Login with KBA
+                Method</a>
+        <?php endif; ?>
+    </div>
+
+    <script>
+        function codeAddress() {
+            var redirectElement = document.getElementById("redirect_to");
+            if (redirectElement) {
+                redirectElement.value = window.location;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const passcodeInputs = document.querySelectorAll('#moPass input[type="text"]');
+            const passcodeHiddenInput = document.getElementById('Passcode');
+
+            // Function to update the hidden Passcode field
+            function updatePasscode() {
+                let passcode = '';
+                passcodeInputs.forEach(input => {
+                    passcode += input.value.trim(); // Trim any accidental spaces
+                });
+                passcodeHiddenInput.value = passcode;
+            }
+
+            // Add event listeners to all passcode inputs
+            passcodeInputs.forEach((input, index) => {
+                // On input or paste, update the Passcode field
+                input.addEventListener('input', updatePasscode);
+                input.addEventListener('paste', (event) => {
+                    // Handle paste event
+                    event.preventDefault();
+                    const pasteData = event.clipboardData.getData('text').trim();
+                    const pasteChars = pasteData.split('');
+
+                    for (let i = 0; i < pasteChars.length; i++) {
+                        if (index + i < passcodeInputs.length) {
+                            passcodeInputs[index + i].value = pasteChars[i];
+                        }
+                    }
+
+                    updatePasscode();
+                });
+
+                // Auto-focus on the next input field when typing
+                input.addEventListener('input', () => {
+                    if (input.value.length == input.maxLength && index + 1 < passcodeInputs.length) {
+                        passcodeInputs[index + 1].focus();
+                    }
+                });
+            });
+        });
+
+    </script>
+    </body>
+    <?php
+}
+
+
+function KBAMethod($formKey, $formPostUrl, $loginPageUrl, $KBAQuestion_set1, $KBAQuestion_set2, $popup_ui_values)
+{
+    ?>
+    <body
+        style="--popup-background-color: <?php if (isset($popup_ui_values->popup_ui_background_colour) && $popup_ui_values->popup_ui_background_colour != NULL) {
+            print_r($popup_ui_values->popup_ui_background_colour);
+        } else {
+            print_r("#bbb1b9");
+        } ?> ;--background-text-color:<?php if (isset($popup_ui_values->popup_ui_header_colour)) {
+            print_r($popup_ui_values->popup_ui_header_colour);
+        } ?> ;background-image: url('<?php if (isset($popup_ui_values->popup_ui_background_image)) {
+            print_r($popup_ui_values->popup_ui_background_image);
+        } ?>') ;  background-size: 100% 100%;">
+
+    <div class="customer_card">
+        <div class="card-title">
+        </div>
+        <br>
+        <div class="card-description">
+            <form method="post" action="<?php print_r($formPostUrl); ?>">
+                <?php print_r($formKey); ?>
+                <input type="hidden" name="kba_method_set" value="kba_method_set"/>
+
+                <br>
+                <div class="col-sm-8">
+                    <select name="q1" class="customer-method-input-box" id="q1"
+                            style="--input-background-color: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                                print_r($popup_ui_values->popup_ui_input_background_color);
+                            } ?> ; --input-text-color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                                print_r($popup_ui_values->popup_ui_input_text_color);
+                            } ?> ;height:40px;">
+                        <?php
+                        $Question_set1 = json_decode($KBAQuestion_set1, true);
+
+                        foreach ($Question_set1 as $item) {
+                            echo "<option value='$item'>$item</option>";
+                        }
+                        ?>
+                    </select>
+                </div>
+
+                <input type="text"
+                       style="background: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                           print_r($popup_ui_values->popup_ui_input_background_color);
+                       } ?> ; color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                           print_r($popup_ui_values->popup_ui_input_text_color);
+                       } ?> ;" class="method-input-box" name="answer1" value="" required/>
+                <br>
+
+                <div class="col-sm-8">
+                    <select name="q2" class="customer-method-input-box" id="q2"
+                            style="--input-background-color: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                                print_r($popup_ui_values->popup_ui_input_background_color);
+                            } ?> ; --input-text-color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                                print_r($popup_ui_values->popup_ui_input_text_color);
+                            } ?> ;height:40px;">
+                        <?php
+                        $Question_set2 = json_decode($KBAQuestion_set2, true);
+
+                        foreach ($Question_set2 as $item) {
+                            echo "<option value='$item'>$item</option>";
+                        }
+                        ?>
+                    </select>
+                </div>
+                <input type="text"
+                       style="background: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                           print_r($popup_ui_values->popup_ui_input_background_color);
+                       } ?> ; color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                           print_r($popup_ui_values->popup_ui_input_text_color);
+                       } ?> ;" class="method-input-box" name="answer2" value="" required/>
+                <br>
+                <table style="width:100%">
+                    <tr>
+                        <td style="width:35%">
+                            <b>Enter your own question:</b>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   style="background: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                                       print_r($popup_ui_values->popup_ui_input_background_color);
+                                   } ?> ; color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                                       print_r($popup_ui_values->popup_ui_input_text_color);
+                                   } ?> ;" class="method-input-box" name="q3" value="" required/>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width:35%">
+                            <b>Answer:</b>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   style="background: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                                       print_r($popup_ui_values->popup_ui_input_background_color);
+                                   } ?> ; color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                                       print_r($popup_ui_values->popup_ui_input_text_color);
+                                   } ?> ;" class="method-input-box" name="answer3" value="" required/>
+                        </td>
+                    </tr>
+
+                </table>
+
+
+                <button class="customer_btn"
+                        style="--button-color: <?php if (isset($popup_ui_values->popup_ui_button_colour) && $popup_ui_values->popup_ui_button_colour != NULL) {
+                            print_r($popup_ui_values->popup_ui_button_colour);
+                        } else {
+                            print_r("#ff8500");
+                        } ?>;--button-text-color:<?php if (isset($popup_ui_values->popup_ui_button_text_color)) {
+                            print_r($popup_ui_values->popup_ui_button_text_color);
+                        } ?> " type="submit">SAVE
+                </button>
+
+            </form>
+            <form method="post" action="<?php print_r($formPostUrl); ?>">
+                <?php print_r($formKey); ?>
+                <button class="customer_btn"
+                        style="margin-left: 100px;margin-top:-32px; position: absolute;--button-color: <?php if (isset($popup_ui_values->popup_ui_button_colour) && $popup_ui_values->popup_ui_button_colour != NULL) {
+                            print_r($popup_ui_values->popup_ui_button_colour);
+                        } else {
+                            print_r("#ff8500");
+                        } ?>;--button-text-color:<?php if (isset($popup_ui_values->popup_ui_button_text_color)) {
+                            print_r($popup_ui_values->popup_ui_button_text_color);
+                        } ?> " type="submit" name="skip_kba_config" value="SKIP">SKIP
+                </button>
+            </form>
+        </div>
+    </div>
+    </body>
+    <?php
+}
+
+function KBAValidate($formKey, $formPostUrl, $loginPageUrl, $kba_random_questions, $popup_ui_values, $is_device_based_enabled, $is_device_limit_exceeded)
+{
+    ?>
+    <body
+        style="--popup-background-color: <?php if (isset($popup_ui_values->popup_ui_background_colour) && $popup_ui_values->popup_ui_background_colour != NULL) {
+            print_r($popup_ui_values->popup_ui_background_colour);
+        } else {
+            print_r("#bbb1b9");
+        } ?> ;--background-text-color:<?php if (isset($popup_ui_values->popup_ui_header_colour)) {
+            print_r($popup_ui_values->popup_ui_header_colour);
+        } ?> ;background-image: url('<?php if (isset($popup_ui_values->popup_ui_background_image)) {
+            print_r($popup_ui_values->popup_ui_background_image);
+        } ?>') ;  background-size: 100% 100%; ">
+    <div class="customer_card">
+        <div class="card-title">
+        </div>
+        <br>
+        <div class="card-description">
+            <form method="post" action="<?php print_r($formPostUrl); ?>/kba">
+                <?php print_r($formKey); ?>
+                <input type="hidden" name="q1" value="<?php print_r($kba_random_questions[2]); ?>"/>
+                <input type="hidden" name="q2" value="<?php print_r($kba_random_questions[3]); ?>"/>
+
+                <table style="width:100%">
+                    <tr>
+                        <td style="width:30%;">
+                            <b> Question 1: </b></td>
+                        <td>
+                            <?php print_r($kba_random_questions[0]['question']); ?></td>
+                    </tr>
+                    <tr>
+                        <td style="width:30%;">
+                            <b> Answer 1:</b></td>
+                        <td><input
+                                style="background: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                                    print_r($popup_ui_values->popup_ui_input_background_color);
+                                } ?> ; color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                                    print_r($popup_ui_values->popup_ui_input_text_color);
+                                } ?> ;width:100%;float:right" type="text" class="method-input-box" name="answer1"
+                                value="" required/></td>
+                    </tr>
+                    <tr>
+                        <td style="width:30%;">
+                            <b>Question 2: </b></td>
+                        <td><?php print_r($kba_random_questions[1]['question']); ?></td>
+                    </tr>
+                    <tr>
+                        <td style="width:30%;">
+                            <b> Answer 2:</b></td>
+                        <td><input
+                                style="background: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                                    print_r($popup_ui_values->popup_ui_input_background_color);
+                                } ?> ; color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                                    print_r($popup_ui_values->popup_ui_input_text_color);
+                                } ?> ;width:100%;float:right" type="text" class="method-input-box" name="answer2"
+                                value="" required/></td>
+                    </tr>
+
+                </table>
+
+                <br>
+                <?php if ($is_device_based_enabled && $is_device_limit_exceeded) { ?>
+                    <div class="customer_row" style="margin-top: 15px;margin-botton: 10px;">
+                        <div class="col-sm-12">
+                            <input type="checkbox" id="rememberDevice" name="rememberDevice" value="1"
+                                   style="margin-right: 10px;">
+                            <label for="rememberDevice" style="font-weight: normal;"><?php echo __("Remember My Device") ?></label>
+                        </div>
+                    </div>
+                <?php } ?>
+                <br>
+
+                <button class="customer_btn"
+                        style="--button-color: <?php if (isset($popup_ui_values->popup_ui_button_colour) && $popup_ui_values->popup_ui_button_colour != NULL) {
+                            print_r($popup_ui_values->popup_ui_button_colour);
+                        } else {
+                            print_r("#ff8500");
+                        } ?>;--button-text-color:<?php if (isset($popup_ui_values->popup_ui_button_text_color)) {
+                            print_r($popup_ui_values->popup_ui_button_text_color);
+                        } ?> " type="submit">Login
+                </button>
+            </form>
+            <form method="post" action="<?php print_r($loginPageUrl); ?>">
+                <button class="customer_btn" type="submit"
+                        style="--button-color: <?php if (isset($popup_ui_values->popup_ui_button_colour) && $popup_ui_values->popup_ui_button_colour != NULL) {
+                            print_r($popup_ui_values->popup_ui_button_colour);
+                        } else {
+                            print_r("#ff8500");
+                        } ?>;--button-text-color:<?php if (isset($popup_ui_values->popup_ui_button_text_color)) {
+                            print_r($popup_ui_values->popup_ui_button_text_color);
+                        } ?> ;margin-top:-32px;margin-left:150px;position:absolute;">Cancel
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+    <?php
+
+    }
+
+function showerrormessage($popup_ui_values)
+    { ?>
+
+        <div class="error_message"
+             style="--error-message-text: <?php if (isset($popup_ui_values->popup_ui_error_text_color) && $popup_ui_values->popup_ui_error_text_color != NULL) {
+                 print_r($popup_ui_values->popup_ui_error_text_color);
+             } else {
+                 print_r("#fa0202");
+             } ?>">
+            <center><?php echo __("Please Enter Correct OTP") ?></center>
+        </div>
+
+<?php }
+
+function countrycode($popup_ui_values)
+{
+    ?>
+    <!-- Only selected countries -->
+    <select id="phone" name="countrycode" class="customer-method-input-box"
+            style="--input-background-color: <?php if (isset($popup_ui_values->popup_ui_input_background_color)) {
+                print_r($popup_ui_values->popup_ui_input_background_color);
+            } ?>
+                ; --input-text-color:<?php if (isset($popup_ui_values->popup_ui_input_text_color)) {
+                print_r($popup_ui_values->popup_ui_input_text_color);
+            } ?>
+                ;width:40%;height:100% ">
+
+        <option value="33" selected><?php echo __("France") ?> +33</option>
+        <option value="590"><?php echo __("Guadeloupe, Saint Barthelemy, Saint Martin") ?> +590</option>
+        <option value="594"><?php echo __("French Guiana") ?> +594</option>
+        <option value="596"><?php echo __("Martinique") ?> +596</option>
+        <option value="262"><?php echo __("Reunion, Mayotte, French Southern Territories") ?> +262</option>
+        <option value="508"><?php echo __("Saint Pierre and Miquelon") ?> +508</option>
+        <option value="687"><?php echo __("New Caledonia") ?> +687</option>
+        <option value="689"><?php echo __("French Polynesia") ?> +689</option>
+        <option value="681"><?php echo __("Wallis and Futuna") ?> +681</option>
+        <!-- remove india after testing -->
+        <!-- <option value="91">India +91</option> -->
+    </select>
+<?php } ?>
+
+<script>
+
+        // updated one
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const resendOtpButton = document.querySelector('.resend-link');
+            const loader = document.createElement('div'); // Create a loader element
+            loader.className = 'loader'; // You can customize the loader with CSS
+            loader.style.display = 'none'; // Initially hidden
+
+            // Add the loader to the body or a specific container
+            document.body.appendChild(loader);
+
+            if (resendOtpButton) {
+
+                resendOtpButton.addEventListener('click', function (event) {
+                    event.preventDefault();
+
+                    // Get URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+
+                    // Initialize variables
+                    let activeMethod = '';
+                    let username = '<?php echo $email; ?>'; // This will store email or phone number
+                    let phone = ''; // Phone number including country code
+                    const countryCode = urlParams.get('countrycode') || ''; // Get country code
+
+                    // Edge Case 1: OOS Method (Step: OOSMethodValidation)
+                    if (urlParams.get('step') === 'OOSMethodValidation') {
+                        activeMethod = 'OOS';
+                        phone = '+' + countryCode + urlParams.get('phone'); // Phone number with country code
+                    }
+                    // Edge Case 2: OOSE Method (Step: OOSEMethodValidation)
+                    else if (urlParams.get('step') === 'OOSEMethodValidation') {
+                        activeMethod = 'OOSE';
+                        phone = '+' + countryCode + urlParams.get('phone'); // Phone number with country code
+                    }
+                    // Edge Case 3: OOE Method (Step: OOEMethodValidation)
+                    else if (urlParams.get('step') === 'OOEMethodValidation') {
+                        activeMethod = 'OOE';
+                        phone = ''; // No phone in this case
+                    }
+                    // Edge Case 4: OTP Sent to Email (InvokeTFA case)
+                    else {
+                        // Try to get the active method from URL parameters or determine it from the context
+                        activeMethod = urlParams.get('active_method') || '';
+                        
+                        // If no active_method in URL, try to determine from the context
+                        if (!activeMethod) {
+                            // Check if we're in a specific step that indicates the method
+                            const step = urlParams.get('step');
+                            if (step === 'OOSMethodValidation') {
+                                activeMethod = 'OOS';
+                            } else if (step === 'OOEMethodValidation') {
+                                activeMethod = 'OOE';
+                            } else if (step === 'OOSEMethodValidation') {
+                                activeMethod = 'OOSE';
+                            } else {
+                                
+                                // Pass PHP activeMethods array to JavaScript
+                                const phpActiveMethods = <?php echo json_encode($activeMethods); ?>;
+                                // Check if phpActiveMethods has any methods available
+                                if (phpActiveMethods && Array.isArray(phpActiveMethods) && phpActiveMethods.length > 0) {
+                                    // Use the first method from the activeMethods array
+                                    activeMethod = phpActiveMethods[0];
+                                } else {
+                                    // Default to OOE for email-based OTP if no other method is specified
+                                    activeMethod = 'OOE';
+                                }
+                            }
+                        }
+                        
+                        phone = ''; // No phone in this case
+
+                        // Function to clean up the URL for the "else" case
+                        function cleanUrl() {
+                            const currentUrl = new URL(window.location.href);
+
+                            // Extract the pathname and remove any unwanted "message/" segment
+                            let cleanedPathname = currentUrl.pathname.replace(/message\/[^\/]+\/$/, '');
+
+                            // Update the URL with the cleaned pathname and keep the query parameters intact
+                            currentUrl.pathname = cleanedPathname;
+
+                            // Update the browser's URL without reloading the page
+                            window.history.pushState({}, '', currentUrl);
+                        }
+
+                        // Clean the URL on page load
+                        cleanUrl();
+                    }
+
+                    // Default case for sending OTP
+                    const requestData = {
+                        username: username, // Will be email or phone number depending on the case
+                        authType: activeMethod, // Active method based on the case
+                        phone: phone // Phone number with country code (if applicable)
+                    };
+
+                    // console.log(requestData, "-------");
+                    const apiUrl = '<?php echo $this->getBaseUrl(); ?>rest/V1/mo2fa/headless/sendOtpApi';
+
+                    resendOtpButton.disabled = true;
+
+                    fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(requestData)
+                    })
+                        .then(response => {
+                            // Check if the response is JSON
+                            const contentType = response.headers.get('content-type');
+                            if (contentType && contentType.includes('application/json')) {
+                                return response.json();
+                            } else {
+                                throw new Error('Invalid response format: Expected JSON');
+                            }
+                        })
+                        .then(data => {
+                            // Check if `data` is an array and has at least one element
+                            if (Array.isArray(data) && data.length > 0) {
+                                const responseData = data[0]; // Access the first object in the array
+                                
+                                // Check the status and update the URL with the appropriate message
+                                let newMessage = '';
+                                if (responseData.status === "SUCCESS") {
+                                    newMessage = 'OTP a été renvoyé avec succès !';
+                                } else {
+                                    newMessage = responseData.message;
+                                }
+
+                                // Update the URL by removing the `error` parameter (if present) and adding/updating the `message` parameter
+                                const currentUrl = new URL(window.location.href);
+
+                                // Conditionally remove the `error` parameter only if it exists
+                                if (currentUrl.searchParams.has('error')) {
+                                    currentUrl.searchParams.delete('error'); // Remove the `error` parameter
+                                }
+
+                                currentUrl.searchParams.set('message', newMessage); // Update the `message` parameter
+                                
+                                // Ensure the active_method is preserved in the URL for proper OTP length determination
+                                if (activeMethod && !currentUrl.searchParams.has('active_method')) {
+                                    currentUrl.searchParams.set('active_method', activeMethod);
+                                }
+
+                                // Update the URL without reloading the page
+                                window.history.pushState({}, '', currentUrl);
+
+                                // Refresh the page to display the updated message
+                                window.location.reload();
+                            } else {
+                                alert('Invalid response format from the server.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred: ' + error.message);
+                        })
+                        .finally(() => {
+                            resendOtpButton.textContent = 'Renvoyer le code';
+                            resendOtpButton.disabled = false;
+
+                            // Hide the loader after the process is done
+                            loader.style.display = 'none';
+                        });
+                });
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const passcodeInputs = document.querySelectorAll('#moPass input[type="text"]');
+            const passcodeHiddenInput = document.getElementById('Passcode');
+
+            // Function to update the hidden Passcode field
+            function updatePasscode() {
+                let passcode = '';
+                passcodeInputs.forEach(input => {
+                    passcode += input.value.trim(); // Trim any accidental spaces
+                });
+                passcodeHiddenInput.value = passcode;
+            }
+
+            // Add event listeners to all passcode inputs
+            passcodeInputs.forEach((input, index) => {
+                input.addEventListener('input', () => {
+                    updatePasscode();
+
+                    // Auto-focus on the next input field when typing
+                    if (input.value.length === input.maxLength && index + 1 < passcodeInputs.length) {
+                        passcodeInputs[index + 1].focus();
+                    }
+                });
+
+                input.addEventListener('paste', (event) => {
+                    event.preventDefault();
+                    const pasteData = event.clipboardData.getData('text').trim();
+                    const pasteChars = pasteData.split('');
+
+                    for (let i = 0; i < pasteChars.length; i++) {
+                        if (index + i < passcodeInputs.length) {
+                            passcodeInputs[index + i].value = pasteChars[i];
+                        }
+                    }
+
+                    updatePasscode();
+                });
+
+                // Handle Backspace key to move focus backward
+                input.addEventListener('keydown', (event) => {
+                    if (event.key === 'Backspace' && input.value === '' && index > 0) {
+                        passcodeInputs[index - 1].focus();
+                    }
+                });
+
+                // Handle arrow key navigation between inputs
+                input.addEventListener('keydown', (event) => {
+                    if (event.key === 'ArrowLeft' && index > 0) {
+                        passcodeInputs[index - 1].focus();
+                    } else if (event.key === 'ArrowRight' && index + 1 < passcodeInputs.length) {
+                        passcodeInputs[index + 1].focus();
+                    }
+                });
+            });
+        });
+
+     
+</script>
+<?php
+

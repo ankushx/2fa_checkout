@@ -1,0 +1,2813 @@
+<?php
+/**
+ * Customer 2FA Settings Template
+ *
+ * @var \MiniOrange\TwoFAHyvaUI\Block\Customer\TwoFASettings $block
+ */
+
+$formKey = $this->getBlockHtml('formkey');
+$formPostUrl = $this->getBaseUrl() . "motwofa/customer";
+$userdetails = $this->getUserDetailsforcustomerreset();
+
+// Check if userdetails is empty or invalid
+if (empty($userdetails) || !isset($userdetails[0]) || empty($userdetails[0])) {
+    ?>
+    <div class="2fa_container">
+        <div class="header_2fa">
+            <!-- Page title placeholder -->
+        </div>
+        <div class="container_2fa">
+            <div class="no-2fa-message">
+                <div class="message-icon">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <h2 class="message-title"><?php echo __("No 2FA Configured") ?></h2>
+                <p class="message-text"><?php echo __("No 2FA is configured for the selected users.") ?></p>
+            </div>
+        </div>
+    </div>
+    <style>
+        .no-2fa-message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 32px;
+            text-align: center;
+        }
+
+        .message-icon {
+            color: #737373;
+            margin-bottom: 24px;
+        }
+
+        .message-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #262626;
+            margin-bottom: 12px;
+        }
+
+        .message-text {
+            font-size: 16px;
+            color: #737373;
+            max-width: 500px;
+        }
+    </style>
+    <?php
+    return;
+}
+
+/**
+ * Get configured method label
+ *
+ * @param string $configuredMethods
+ * @return string
+ */
+function getConfiguredMethodLabel($configuredMethods)
+{
+    $mapping = [
+        'OOE' => 'OTP over Email',
+        'OOS' => 'OTP over SMS',
+        'OOW' => 'OTP over Whatsapp',
+        'GoogleAuthenticator' => 'Google Authenticator',
+        'MicrosoftAuthenticator' => 'Microsoft Authenticator',
+        'OOSE' => 'OTP over SMS + Email',
+        'User_skipTwofa' => 'User has skip 2fa'
+    ];
+
+    $methods = explode(',', $configuredMethods);
+    $labels = array_map(function ($method) use ($mapping) {
+        return $mapping[$method] ?? $method;
+    }, $methods);
+
+    return implode(', ', $labels);
+}
+
+/**
+ * Format secret for display (add spaces every 4 characters)
+ *
+ * @param string $secret
+ * @return string
+ */
+function formatSecret($secret)
+{
+    if (empty($secret)) {
+        return '';
+    }
+    $secret = str_replace(' ', '', $secret);
+    return implode(' ', str_split($secret, 4));
+}
+
+/**
+ * Check if configuredMethod matches a method (handles OOSE for SMS+Email)
+ *
+ * @param string $method
+ * @param string $configuredMethod
+ * @return bool
+ */
+function isMethodConfigured($method, $configuredMethod)
+{
+    if (empty($configuredMethod)) {
+        return false;
+    }
+
+    // Check exact match
+    if ($configuredMethod === $method) {
+        return true;
+    }
+
+    // Check if configuredMethod is comma-separated
+    $methods = array_map('trim', explode(',', $configuredMethod));
+    if (in_array($method, $methods)) {
+        return true;
+    }
+
+    // Special case: OOSE matches both OOS and OOE
+    if ($method === 'OOS' && $configuredMethod === 'OOSE') {
+        return true;
+    }
+
+    if ($method === 'OOE' && $configuredMethod === 'OOSE') {
+        return true;
+    }
+
+    return false;
+}
+
+// ============================================================================
+// Initialize Variables
+// ============================================================================
+
+// Get customer email for authenticator QR codes
+$customerEmail = '';
+if (!empty($userdetails[0]['username'])) {
+    $customerEmail = $userdetails[0]['username'];
+}
+
+// ============================================================================
+// Check Authenticator Verification Status FIRST (before generating URLs)
+// ============================================================================
+
+// Check if Google Authenticator is verified
+$googleAuthVerified = false;
+$googleAuthSecretData = null;
+$googleVerifiedSecret = '';
+
+if (!empty($userdetails[0]['google_authenticator_secret'])) {
+    $googleAuthSecretValue = $userdetails[0]['google_authenticator_secret'];
+    
+    // Handle json_decode safely - check if it's already an array or needs decoding
+    if (is_array($googleAuthSecretValue)) {
+        $googleAuthSecretData = $googleAuthSecretValue;
+    } elseif (is_string($googleAuthSecretValue)) {
+        $googleAuthSecretData = json_decode($googleAuthSecretValue, true);
+    } else {
+        $googleAuthSecretData = null;
+    }
+    
+    // Check if it's an array format: ["verified", "SECRET"]
+    if (is_array($googleAuthSecretData) 
+        && count($googleAuthSecretData) >= 2
+        && isset($googleAuthSecretData[0])
+        && $googleAuthSecretData[0] === 'verified'
+        && !empty($googleAuthSecretData[1])
+    ) {
+        $googleAuthVerified = true;
+        $googleVerifiedSecret = $googleAuthSecretData[1];
+    }
+}
+
+// Check if Microsoft Authenticator is verified
+$microsoftAuthVerified = false;
+$microsoftAuthSecretData = null;
+$microsoftVerifiedSecret = '';
+
+if (!empty($userdetails[0]['microsoft_authenticator_secret'])) {
+    $microsoftAuthSecretValue = $userdetails[0]['microsoft_authenticator_secret'];
+    
+    // Handle json_decode safely - check if it's already an array or needs decoding
+    if (is_array($microsoftAuthSecretValue)) {
+        $microsoftAuthSecretData = $microsoftAuthSecretValue;
+    } elseif (is_string($microsoftAuthSecretValue)) {
+        $microsoftAuthSecretData = json_decode($microsoftAuthSecretValue, true);
+    } else {
+        $microsoftAuthSecretData = null;
+    }
+    
+    // Check if it's an array format: ["verified", "SECRET"]
+    if (is_array($microsoftAuthSecretData) 
+        && count($microsoftAuthSecretData) >= 2
+        && isset($microsoftAuthSecretData[0])
+        && $microsoftAuthSecretData[0] === 'verified'
+        && !empty($microsoftAuthSecretData[1])
+    ) {
+        $microsoftAuthVerified = true;
+        $microsoftVerifiedSecret = $microsoftAuthSecretData[1];
+    }
+}
+
+// ============================================================================
+// Get authenticator data for QR code generation
+// ============================================================================
+$googleAuthUrl = '';
+$googleSecret = '';
+$microsoftAuthUrl = '';
+$microsoftSecret = '';
+$issuer = '';
+
+if (!empty($customerEmail)) {
+    try {
+        $issuer = $this->AuthenticatorIssuer();
+        
+        // For Google Authenticator
+        if ($googleAuthVerified && !empty($googleVerifiedSecret)) {
+            // Use verified secret - construct QR URL manually
+            $googleSecret = $googleVerifiedSecret;
+            $googleAuthUrl = 'otpauth://totp/' . urlencode($issuer . ':' . $customerEmail) . 
+                            '?secret=' . $googleSecret . 
+                            '&issuer=' . urlencode($issuer);
+        } else {
+            // Generate new secret and URL
+            $googleAuthUrl = $this->AuthenticatorCustomerUrl($customerEmail);
+            $googleSecret = $this->getCustomerSecret();
+        }
+        
+        // For Microsoft Authenticator
+        if ($microsoftAuthVerified && !empty($microsoftVerifiedSecret)) {
+            // Use verified secret - construct QR URL manually
+            $microsoftSecret = $microsoftVerifiedSecret;
+            $microsoftAuthUrl = 'otpauth://totp/' . urlencode($issuer . ':' . $customerEmail) . 
+                                '?secret=' . $microsoftSecret . 
+                                '&issuer=' . urlencode($issuer);
+        } else {
+            // Generate new secret and URL
+            $microsoftAuthUrl = $this->AuthenticatorCustomerUrl($customerEmail);
+            $microsoftSecret = $this->getCustomerSecret();
+        }
+    } catch (Exception $e) {
+        // If methods don't exist, handle gracefully
+        $googleSecret = '';
+        $microsoftSecret = '';
+    }
+}
+
+$googleSecretFormatted = formatSecret($googleSecret);
+$microsoftSecretFormatted = formatSecret($microsoftSecret);
+
+// Get all alternate 2FA methods
+$getCustomerAlternateMethods = $this->getCustomerAlternate2faMethod();
+$alternateMethods = [];
+
+// Handle json_decode safely - check if it's already an array, null, or needs decoding
+if (is_array($getCustomerAlternateMethods)) {
+    $alternateMethods = $getCustomerAlternateMethods;
+} elseif (!empty($getCustomerAlternateMethods) && is_string($getCustomerAlternateMethods)) {
+    $decoded = json_decode($getCustomerAlternateMethods, true);
+    $alternateMethods = is_array($decoded) ? $decoded : [];
+}
+
+// Add the configured method if not empty
+$configuredMethod = !empty($userdetails[0]['configured_methods']) 
+    ? trim($userdetails[0]['configured_methods']) 
+    : '';
+
+if (!empty($configuredMethod)) {
+    $alternateMethods[] = $configuredMethod;
+}
+
+// Remove duplicates
+$allMethods = array_values(array_unique($alternateMethods));
+
+// ============================================================================
+// Check Active Methods Status
+// ============================================================================
+
+// Check if methods are active based on all_active_methods
+$allActiveMethods = [];
+if (!empty($userdetails[0]['all_active_methods'])) {
+    $allActiveMethodsValue = $userdetails[0]['all_active_methods'];
+    
+    // Handle json_decode safely - check if it's already an array or needs decoding
+    if (is_array($allActiveMethodsValue)) {
+        $allActiveMethods = $allActiveMethodsValue;
+    } elseif (is_string($allActiveMethodsValue) && !empty(trim($allActiveMethodsValue))) {
+        $decoded = json_decode($allActiveMethodsValue, true);
+        $allActiveMethods = is_array($decoded) ? $decoded : [];
+    }
+}
+
+// If allActiveMethods is empty, populate it from configured_methods
+// This ensures that configured methods are considered active
+if (empty($allActiveMethods) && !empty($configuredMethod)) {
+    // Split configuredMethod by comma if it contains multiple methods
+    $methods = array_map('trim', explode(',', $configuredMethod));
+    $allActiveMethods = [];
+    
+    foreach ($methods as $method) {
+        if (empty($method)) {
+            continue;
+        }
+        
+        // Handle special case: OOSE represents both OOS and OOE
+        if ($method === 'OOSE') {
+            $allActiveMethods[] = 'OOS';
+            $allActiveMethods[] = 'OOE';
+        } else {
+            $allActiveMethods[] = $method;
+        }
+    }
+    
+    // Remove duplicates
+    $allActiveMethods = array_values(array_unique($allActiveMethods));
+}
+
+// Check if Google Authenticator is active
+$googleAuthIsActive = false;
+if ($googleAuthVerified 
+    && (in_array('GoogleAuthenticator', $allActiveMethods) 
+        || isMethodConfigured('GoogleAuthenticator', $configuredMethod))
+) {
+    $googleAuthIsActive = true;
+}
+
+// Check if Microsoft Authenticator is active
+$microsoftAuthIsActive = false;
+if ($microsoftAuthVerified 
+    && (in_array('MicrosoftAuthenticator', $allActiveMethods) 
+        || isMethodConfigured('MicrosoftAuthenticator', $configuredMethod))
+) {
+    $microsoftAuthIsActive = true;
+}
+
+// Check if SMS (OOS) is verified
+$smsVerified = false;
+if (!empty($userdetails[0]['phone']) && !empty($userdetails[0]['countrycode'])) {
+    $smsVerified = true;
+}
+
+// Check if Email (OOE) is active
+$emailIsActive = false;
+if (in_array('OOE', $allActiveMethods) || isMethodConfigured('OOE', $configuredMethod)) {
+    $emailIsActive = true;
+}
+
+// Check if SMS (OOS) is active
+$smsIsActive = false;
+if ($smsVerified 
+    && (in_array('OOS', $allActiveMethods) || isMethodConfigured('OOS', $configuredMethod))
+) {
+    $smsIsActive = true;
+}
+
+// ============================================================================
+// Determine Initial Active Section
+// ============================================================================
+// Determine which section should be shown initially based on active methods
+$initialActiveSection = 'authenticator'; // Default to authenticator
+if ($smsIsActive && in_array('OOS', $allMethods)) {
+    $initialActiveSection = 'sms';
+} elseif ($emailIsActive && in_array('OOE', $allMethods)) {
+    $initialActiveSection = 'email';
+} elseif (($googleAuthIsActive || $microsoftAuthIsActive) && 
+          (in_array('GoogleAuthenticator', $allMethods) || in_array('MicrosoftAuthenticator', $allMethods))) {
+    $initialActiveSection = 'authenticator';
+} elseif (in_array('OOS', $allMethods)) {
+    $initialActiveSection = 'sms';
+} elseif (in_array('OOE', $allMethods)) {
+    $initialActiveSection = 'email';
+}
+
+// ============================================================================
+// Phone Verification Check (using Cookie Session - 5 minutes)
+// ============================================================================
+
+$phone = isset($userdetails[0]['phone']) ? trim($userdetails[0]['phone']) : '';
+$countryCode = isset($userdetails[0]['countrycode']) ? trim($userdetails[0]['countrycode']) : '';
+$customerEmail = !empty($userdetails[0]['username']) ? $userdetails[0]['username'] : '';
+
+// Check if phone verification is needed
+$phoneVerificationNeeded = false;
+$phoneVerified = false;
+
+// Only check if phone and countryCode are present and not empty
+if (!empty($phone) && !empty($countryCode) && !empty($customerEmail)) {
+    // Phone verification will be checked via JavaScript cookie
+    // We'll set a flag to show verification UI if cookie doesn't exist or expired
+    $phoneVerificationNeeded = true;
+} else {
+    // No phone configured, skip verification
+    $phoneVerified = true;
+}
+
+?>
+
+<!-- ============================================================================
+     Phone Verification Section (shown first if verification needed)
+     ============================================================================ -->
+<?php if ($phoneVerificationNeeded): ?>
+<div id="phone-verification-wrapper" style="display: none;">
+    <div class="2fa_container">
+        <div class="header_2fa">
+            <h1 class="page-title"><?php echo __("Phone Verification Required") ?></h1>
+            <div class="breadcrumb">
+                <?php echo __("Please verify your phone number to continue"); ?>
+            </div>
+        </div>
+        <div class="container_2fa">
+            <div class="auth-card" style="max-width: 600px; margin: 0 auto;">
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <div class="icon-box primary">
+                            <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                        </div>
+                        <div class="card-title-section">
+                            <h3><?php echo __("Verify Phone Number"); ?></h3>
+                            <p class="card-description">
+                                <?php echo __("An OTP has been sent to your registered phone number. Please enter the code to continue."); ?>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="steps" style="display: flex;">
+                    <div class="step-content">
+                        <div class="form-group">
+                            <label class="form-label"><?php echo __("Enter OTP"); ?></label>
+                            <div id="phone-verification-otp-container" style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: center;">
+                                <!-- OTP input fields will be generated here -->
+                            </div>
+                            <div style="display: flex; gap: 12px; align-items: center; justify-content: center;">
+                                <button type="button" id="phone-verification-verify-btn" class="btn btn-primary_2fa">
+                                    <?php echo __("Verify OTP"); ?>
+                                </button>
+                                <button type="button" id="phone-verification-resend-btn" class="btn btn-secondary">
+                                    <?php echo __("Resend OTP"); ?>
+                                </button>
+                            </div>
+                            <div id="phone-verification-message" style="margin-top: 12px; font-size: 14px; text-align: center;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- ============================================================================
+     Main Container (hidden until phone is verified)
+     ============================================================================ -->
+<div id="main-2fa-content" class="2fa_container" style="<?php echo $phoneVerificationNeeded ? 'display: none;' : ''; ?>">
+    <div class="header_2fa">
+        <h1 class="page-title"><?php echo __("Configure Second Factor") ?></h1>
+        <div class="breadcrumb">
+            <?php echo __("Active Method") ?> <span>:</span> 
+            <span class="active_method">
+                <?php echo __(getConfiguredMethodLabel(
+                    !empty($userdetails[0]['configured_methods']) 
+                        ? $userdetails[0]['configured_methods'] 
+                        : ''
+                )) ?>
+            </span>
+            
+            <!-- <button class="security-codes-btn">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Security Codes
+                </button> -->
+        </div>
+    </div>
+
+    <div class="container_2fa">
+        <!-- ====================================================================
+             Sidebar Navigation
+             ==================================================================== -->
+        <aside class="sidebar sidebar_2fa">
+            <nav>
+                <?php if (in_array('OOS', $allMethods)): ?>
+                    <button class="sidebar-item <?php echo ($initialActiveSection === 'sms') ? 'active' : ''; ?>" onclick="showSection('sms')">
+                        <div class="sidebar-item-left">
+                            <svg class="sidebar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                            <span>SMS</span>
+                        </div>
+                        <svg class="check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </button>
+                <?php endif; ?>
+
+                <?php if (in_array('OOE', $allMethods)): ?>
+                    <button class="sidebar-item <?php echo ($initialActiveSection === 'email') ? 'active' : ''; ?>" onclick="showSection('email')">
+                        <div class="sidebar-item-left">
+                            <svg class="sidebar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>Email</span>
+                        </div>
+                        <svg class="check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </button>
+                <?php endif; ?>
+
+                <?php if (in_array('GoogleAuthenticator', $allMethods) || in_array('MicrosoftAuthenticator', $allMethods)): ?>
+                    <button class="sidebar-item <?php echo ($initialActiveSection === 'authenticator') ? 'active' : ''; ?>" onclick="showSection('authenticator')">
+                        <div class="sidebar-item-left">
+                            <svg class="sidebar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                            </svg>
+                            <span>Authenticator App</span>
+                        </div>
+                        <svg class="check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </button>
+                <?php endif; ?>
+            </nav>
+        </aside>
+
+        <!-- ====================================================================
+             Main Content Area
+             ==================================================================== -->
+        <main class="main-content">
+            <!-- Google Authenticator Section -->
+            <?php if (in_array('GoogleAuthenticator', $allMethods) || in_array('MicrosoftAuthenticator', $allMethods)): ?>
+                <section id="authenticator-section" class="<?php echo ($initialActiveSection !== 'authenticator') ? 'hidden' : ''; ?>">
+                    <?php if (in_array('GoogleAuthenticator', $allMethods)): ?>
+                        <!-- Google Authenticator Card -->
+                        <div class="auth-card">
+                            <div class="card-header">
+                                <div class="card-header-left">
+                                    <div class="icon-box google">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="32" height="32">
+                                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.34 1.45 8.28 2.68l6.1-6.1C34.46 2.77 29.64 1 24 1 14.64 1 6.7 6.91 3.15 15.02l7.1 5.51C11.92 14.94 17.41 9.5 24 9.5z"/>
+                                            <path fill="#34A853" d="M46.15 24.5c0-1.57-.14-3.08-.4-4.5H24v9h12.65c-.55 2.96-2.21 5.46-4.65 7.18l7.1 5.51C43.68 38.02 46.15 31.7 46.15 24.5z"/>
+                                            <path fill="#FBBC05" d="M10.25 28.47c-.48-1.42-.75-2.93-.75-4.47s.27-3.05.75-4.47l-7.1-5.51C1.3 16.18 0 20 0 24s1.3 7.82 3.15 10.98l7.1-5.51z"/>
+                                            <path fill="#4285F4" d="M24 47c6.48 0 11.91-2.15 15.88-5.86l-7.1-5.51C30.62 37.89 27.53 39 24 39c-6.59 0-12.08-5.44-13.75-12.52l-7.1 5.51C6.7 41.09 14.64 47 24 47z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="card-title-section">
+                                        <h3>
+                                            Google Authenticator
+                                            <?php if ($googleAuthVerified): ?>
+                                                <span class="badge"><?php echo __("Configured"); ?></span>
+                                            <?php endif; ?>
+                                        </h3>
+                                        <p class="card-description">
+                                            <?php echo __("In this method, you need to scan the QR code from the Google Authenticator App."); ?><br>
+                                            <?php echo __("This App will provide the 6 digit OTP token to complete the MFA challenge."); ?>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="card-header-right">
+                                    <div class="toggle-group">
+                                        <div class="toggle-switch <?php echo $googleAuthIsActive ? 'active' : ''; ?>" 
+                                             data-method="GoogleAuthenticator" 
+                                             data-verified="<?php echo $googleAuthVerified ? '1' : '0'; ?>">
+                                            <div class="toggle-switch-handle"></div>
+                                        </div>
+                                        <span class="toggle-label">
+                                            <?php echo $googleAuthIsActive ? __("Active") : __("Inactive"); ?>
+                                        </span>
+                                    </div>
+                                    <a href="#" class="edit-btn"><?php echo __("Edit") ?></a>
+
+                                    <!-- Hidden form for toggle submission -->
+                                    <?php if ($googleAuthVerified): ?>
+                                        <form method="post" action="<?php echo $formPostUrl; ?>" id="toggle-google-form" style="display: none;">
+                                            <?php echo $formKey; ?>
+                                            <input type="hidden" name="action" value="toggle_authenticator">
+                                            <input type="hidden" name="authenticator_method" value="GoogleAuthenticator">
+                                            <input type="hidden" name="customerEmail" value="<?php echo htmlspecialchars($customerEmail); ?>">
+                                            <input type="hidden" name="all_active_methods" value="<?php echo htmlspecialchars(!empty($allActiveMethods) ? json_encode($allActiveMethods) : '[]'); ?>">
+                                            <input type="hidden" name="secret" value="<?php echo !empty($googleVerifiedSecret) ? htmlspecialchars($googleVerifiedSecret) : htmlspecialchars($googleSecret); ?>">
+                                            <input type="hidden" name="is_active" id="google-toggle-state" value="<?php echo $googleAuthIsActive ? '1' : '0'; ?>">
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <div class="steps">
+                                <!-- Step 1 -->
+                                <div class="step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <p class="step-text">
+                                            <?php echo __("Download and open the Google Authenticator app on your device."); ?>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2 -->
+                                <div class="step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <p class="step-text">
+                                            <?php echo __("To register your device Scan the QR code using Google Authenticator app or use following secret code."); ?>
+                                        </p>
+                                        <div class="qr-section">
+                                            <div class="qr-code-container">
+                                                <div class="mo2f_gauth" 
+                                                     id="displayGAQrCodeGoogle" 
+                                                     style="background: white;" 
+                                                     data-qrcode="<?php echo htmlspecialchars($googleAuthUrl); ?>">
+                                                </div>
+                                                <div id="qrcode-google"></div>
+                                            </div>
+                                            <div class="or-divider">
+                                                <span class="or-text">OR</span>
+                                            </div>
+                                            <div class="secret-box">
+                                                <p class="secret-label"><?php echo __("Use the following secret"); ?></p>
+                                                <p class="secret-code" id="googleSecretCode" style="cursor: pointer; position: relative;">
+                                                    <?php 
+                                                    $displaySecret = !empty($googleVerifiedSecret) 
+                                                        ? $googleVerifiedSecret 
+                                                        : (!empty($googleSecretFormatted) 
+                                                            ? $googleSecretFormatted 
+                                                            : 'D6Y2 WSNV URAU OQNX');
+                                                    echo htmlspecialchars($displaySecret); 
+                                                    ?>
+                                                    <i class="fas fa-copy" 
+                                                       onclick="copySecret('googleSecretCode')" 
+                                                       title="Copy Secret" 
+                                                       style="margin-left: 8px; font-size: 14px; color: #3b82f6;">
+                                                    </i>
+                                                    <span id="googleCopiedMessage" 
+                                                          style="display: none; color: #3b82f6; font-size: 12px; margin-left: 8px;">
+                                                        Copied!
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3 -->
+                                <div class="step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <p class="step-text">
+                                            <?php echo __("Enter the Passcode generated by Google Authenticator app."); ?>
+                                        </p>
+                                        <form method="post" action="<?php echo $formPostUrl; ?>">
+                                            <div class="form-group">
+                                                <input type="text" 
+                                                       name="passcode" 
+                                                       class="form-input" 
+                                                       placeholder="Enter Passcode">
+                                            </div>
+                                            <?php echo $formKey; ?>
+                                            <input type="hidden" id="google-passcode" name="Passcode">
+                                            <input type="hidden" 
+                                                   name="secret" 
+                                                   value="<?php echo !empty($googleVerifiedSecret) ? htmlspecialchars($googleVerifiedSecret) : htmlspecialchars($googleSecret); ?>">
+                                            <input type="hidden" 
+                                                   name="customerEmail" 
+                                                   value="<?php echo htmlspecialchars($customerEmail); ?>">
+                                            <input type="hidden" name="authenticator_method" value="GoogleAuthenticator">
+                                            <div class="form-actions">
+                                                <button type="submit" name="save_authenticator" class="btn btn-primary_2fa">
+                                                    <?php echo __("Save"); ?>
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" onclick="collapseSteps(this)">
+                                                    <?php echo __("Cancel"); ?>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (in_array('MicrosoftAuthenticator', $allMethods)): ?>
+                        <!-- Microsoft Authenticator Card -->
+                        <div class="auth-card">
+                            <div class="card-header">
+                                <div class="card-header-left">
+                                    <div class="icon-box" style="background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                        <svg viewBox="0 0 24 24" width="32" height="32" class="microsoft-icon">
+                                            <rect x="2" y="2" width="9" height="9" />
+                                            <rect x="13" y="2" width="9" height="9" />
+                                            <rect x="2" y="13" width="9" height="9" />
+                                            <rect x="13" y="13" width="9" height="9" />
+                                        </svg>
+                                    </div>
+                                    <div class="card-title-section">
+                                        <h3>
+                                            Microsoft Authenticator
+                                            <?php if ($microsoftAuthVerified): ?>
+                                                <span class="badge"><?php echo __("Configured"); ?></span>
+                                            <?php endif; ?>
+                                        </h3>
+                                        <p class="card-description">
+                                            <?php echo __("In this method, you need to scan the QR code from the Microsoft Authenticator App."); ?><br>
+                                            <?php echo __("This App will provide the 6 digit OTP token to complete the MFA challenge."); ?>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="card-header-right">
+                                    <div class="toggle-group">
+                                        <div class="toggle-switch <?php echo $microsoftAuthIsActive ? 'active' : ''; ?>" 
+                                             data-method="MicrosoftAuthenticator" 
+                                             data-verified="<?php echo $microsoftAuthVerified ? '1' : '0'; ?>">
+                                            <div class="toggle-switch-handle"></div>
+                                        </div>
+                                        <span class="toggle-label">
+                                            <?php echo $microsoftAuthIsActive ? __("Active") : __("Inactive"); ?>
+                                        </span>
+                                    </div>
+                                    <a href="#" class="edit-btn"><?php echo __("Edit") ?></a>
+
+                                    <!-- Hidden form for toggle submission -->
+                                    <?php if ($microsoftAuthVerified): ?>
+                                        <form method="post" action="<?php echo $formPostUrl; ?>" id="toggle-microsoft-form" style="display: none;">
+                                            <?php echo $formKey; ?>
+                                            <input type="hidden" name="action" value="toggle_authenticator">
+                                            <input type="hidden" name="authenticator_method" value="MicrosoftAuthenticator">
+                                            <input type="hidden" name="customerEmail" value="<?php echo htmlspecialchars($customerEmail); ?>">
+                                            <input type="hidden" name="all_active_methods" value="<?php echo htmlspecialchars(!empty($allActiveMethods) ? json_encode($allActiveMethods) : '[]'); ?>">
+                                            <input type="hidden" name="secret" value="<?php echo !empty($microsoftVerifiedSecret) ? htmlspecialchars($microsoftVerifiedSecret) : htmlspecialchars($microsoftSecret); ?>">
+                                            <input type="hidden" name="is_active" id="microsoft-toggle-state" value="<?php echo $microsoftAuthIsActive ? '1' : '0'; ?>">
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <div class="steps">
+                                <!-- Step 1 -->
+                                <div class="step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <p class="step-text">
+                                            <?php echo __("Download and open the Microsoft Authenticator app on your device."); ?>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2 -->
+                                <div class="step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <p class="step-text">
+                                            <?php echo __("To register your device Scan the QR code using Microsoft Authenticator app or use following secret code."); ?>
+                                        </p>
+                                        <div class="qr-section">
+                                            <div class="qr-code-container">
+                                                <div class="mo2f_gauth" 
+                                                     id="displayGAQrCodeMicrosoft" 
+                                                     style="background: white;" 
+                                                     data-qrcode="<?php echo htmlspecialchars($microsoftAuthUrl); ?>">
+                                                </div>
+                                                <div id="qrcode-microsoft"></div>
+                                            </div>
+                                            <div class="or-divider">
+                                                <span class="or-text">OR</span>
+                                            </div>
+                                            <div class="secret-box">
+                                                <p class="secret-label"><?php echo __("Use the following secret"); ?></p>
+                                                <p class="secret-code" id="microsoftSecretCode" style="cursor: pointer; position: relative;">
+                                                    <?php 
+                                                    $displaySecret = !empty($microsoftVerifiedSecret) 
+                                                        ? $microsoftVerifiedSecret 
+                                                        : (!empty($microsoftSecretFormatted) 
+                                                            ? $microsoftSecretFormatted 
+                                                            : 'D6Y2WSNVURAUOQNX');
+                                                    echo htmlspecialchars($displaySecret); 
+                                                    ?>
+                                                    <i class="fas fa-copy" 
+                                                       onclick="copySecret('microsoftSecretCode')" 
+                                                       title="Copy Secret" 
+                                                       style="margin-left: 8px; font-size: 14px; color: #3b82f6;">
+                                                    </i>
+                                                    <span id="microsoftCopiedMessage" 
+                                                          style="display: none; color: #3b82f6; font-size: 12px; margin-left: 8px;">
+                                                        Copied!
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3 -->
+                                <div class="step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <p class="step-text">
+                                            <?php echo __("Enter the Passcode generated by Microsoft Authenticator app."); ?>
+                                        </p>
+                                        <form method="post" action="<?php echo $formPostUrl; ?>">
+                                            <div class="form-group">
+                                                <input type="text" 
+                                                       name="passcode" 
+                                                       class="form-input" 
+                                                       placeholder="Enter Passcode">
+                                            </div>
+                                            <?php echo $formKey; ?>
+                                            <input type="hidden" id="microsoft-passcode" name="Passcode">
+                                            <input type="hidden" 
+                                                   name="secret" 
+                                                   value="<?php echo !empty($microsoftVerifiedSecret) ? htmlspecialchars($microsoftVerifiedSecret) : htmlspecialchars($microsoftSecret); ?>">
+                                            <input type="hidden" 
+                                                   name="customerEmail" 
+                                                   value="<?php echo htmlspecialchars($customerEmail); ?>">
+                                            <input type="hidden" name="authenticator_method" value="MicrosoftAuthenticator">
+                                            <div class="form-actions">
+                                                <button type="submit" name="save_authenticator" class="btn btn-primary_2fa">
+                                                    <?php echo __("Save"); ?>
+                                                </button>
+                                                <button type="button" class="btn btn-secondary">
+                                                    <?php echo __("Cancel"); ?>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            <?php endif; ?>
+
+            <!-- SMS Section -->
+            <?php if (in_array('OOS', $allMethods)): ?>
+                <section id="sms-section" class="<?php echo ($initialActiveSection !== 'sms') ? 'hidden' : ''; ?>">
+                    <div class="auth-card">
+                        <div class="card-header">
+                            <div class="card-header-left">
+                                <div class="icon-box primary">
+                                    <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                    </svg>
+                                </div>
+                                <div class="card-title-section">
+                                    <h3>
+                                        OTP over SMS
+                                        <?php if ($smsVerified): ?>
+                                            <span class="badge"><?php echo __("Configured"); ?></span>
+                                        <?php endif; ?>
+                                    </h3>
+                                    <p class="card-description">
+                                        <?php echo __("In this method, you receive an SMS containing a 4-8 digit numeric key which you need to enter to authenticate yourself."); ?>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="card-header-right">
+                                <div class="toggle-group">
+                                    <div class="toggle-switch <?php echo $smsIsActive ? 'active' : ''; ?>">
+                                        <div class="toggle-switch-handle"></div>
+                                    </div>
+                                    <span class="toggle-label">
+                                        <?php echo $smsIsActive ? __("Active") : __("Inactive"); ?>
+                                    </span>
+                                </div>
+                                <a href="#" class="edit-btn"><?php echo __("Edit") ?></a>
+                            </div>
+                        </div>
+
+                        <div class="steps">
+                            <div class="step-content">
+                                <div class="form-group">
+                                    <label class="form-label"><?php echo __("Phone"); ?></label>
+                                    <div style="display: flex; gap: 12px; align-items: center;">
+                                        <select id="countrycode-dropdown" 
+                                                name="countrycode" 
+                                                class="form-input" 
+                                                style="width: auto; min-width: 140px; height: 40px;">
+                                            <option value="33" <?php echo ($userdetails[0]['countrycode'] == '33') ? 'selected' : ''; ?>>+33</option>
+                                            <option value="590" <?php echo ($userdetails[0]['countrycode'] == '590') ? 'selected' : ''; ?>>+590</option>
+                                            <option value="594" <?php echo ($userdetails[0]['countrycode'] == '594') ? 'selected' : ''; ?>>+594</option>
+                                            <option value="596" <?php echo ($userdetails[0]['countrycode'] == '596') ? 'selected' : ''; ?>>+596</option>
+                                            <option value="262" <?php echo ($userdetails[0]['countrycode'] == '262') ? 'selected' : ''; ?>>+262</option>
+                                            <option value="508" <?php echo ($userdetails[0]['countrycode'] == '508') ? 'selected' : ''; ?>>+508</option>
+                                            <option value="687" <?php echo ($userdetails[0]['countrycode'] == '687') ? 'selected' : ''; ?>>+687</option>
+                                            <option value="689" <?php echo ($userdetails[0]['countrycode'] == '689') ? 'selected' : ''; ?>>+689</option>
+                                            <option value="681" <?php echo ($userdetails[0]['countrycode'] == '681') ? 'selected' : ''; ?>>+681</option>
+                                            <option value="91" <?php echo ($userdetails[0]['countrycode'] == '91') ? 'selected' : ''; ?>>+91</option>
+                                        </select>
+                                        <input type="tel"
+                                               id="phone-input"
+                                               class="form-input"
+                                               style="flex:1;"
+                                               value="<?php echo htmlspecialchars($userdetails[0]['phone']); ?>"
+                                               maxlength="15"
+                                               placeholder="<?php echo __('Phone Number'); ?>">
+                                        <button type="button" id="update-phone-btn" class="btn btn-primary_2fa">
+                                            <?php echo __("Update Phone Number"); ?>
+                                        </button>
+                                    </div>
+                                    <div id="phone-error-message" 
+                                         style="margin-top: 8px; font-size: 14px; color: #d9533d; display: none;">
+                                    </div>
+                                </div>
+
+                                <!-- OTP Validation Section (Hidden Initially) -->
+                                <div id="otp-validation-section" style="display: none; margin-top: 20px;">
+                                    <div class="form-group">
+                                        <label class="form-label"><?php echo __("Enter OTP"); ?></label>
+                                        <div id="otp-input-container" style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                            <!-- OTP input fields will be generated here -->
+                                        </div>
+                                        <div style="display: flex; gap: 12px; align-items: center;">
+                                            <button type="button" id="verify-otp-btn" class="btn btn-primary_2fa">
+                                                <?php echo __("Verify OTP"); ?>
+                                            </button>
+                                            <button type="button" id="cancel-otp-btn" class="btn btn-secondary">
+                                                <?php echo __("Cancel"); ?>
+                                            </button>
+                                        </div>
+                                        <div id="otp-message" style="margin-top: 12px; font-size: 14px;"></div>
+                                    </div>
+
+                                    <!-- Hidden form for OTP validation -->
+                                    <form method="post" 
+                                          action="<?php echo $formPostUrl; ?>" 
+                                          id="validate-otp-form" 
+                                          style="display: none;">
+                                        <?php echo $formKey; ?>
+                                        <input type="hidden" name="mopostoption" value="uservalotp">
+                                        <input type="hidden" id="otp-passcode" name="Passcode">
+                                        <input type="hidden" name="email" value="<?php echo htmlspecialchars($customerEmail); ?>">
+                                        <input type="hidden" name="active_method" value="OOS">
+                                        <input type="hidden" name="savestep" value="OOS">
+                                        <input type="hidden" id="update-phone-number" name="phone" value="">
+                                        <input type="hidden" id="update-country-code" name="countrycode" value="">
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            <?php endif; ?>
+
+            <!-- Email Section -->
+            <?php if (in_array('OOE', $allMethods)): ?>
+                <section id="email-section" class="<?php echo ($initialActiveSection !== 'email') ? 'hidden' : ''; ?>">
+                    <div class="auth-card">
+                        <div class="card-header">
+                            <div class="card-header-left">
+                                <div class="icon-box primary">
+                                    <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                                <div class="card-title-section">
+                                    <h3>
+                                        OTP over Email
+                                        <span class="badge"><?php echo __("Configured"); ?></span>
+                                    </h3>
+                                    <p class="card-description">
+                                        <?php echo __("In this method, you receive an email containing a 4-8 digit numeric key which you need to enter."); ?>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="card-header-right">
+                                <div class="toggle-group">
+                                    <div class="toggle-switch <?php echo $emailIsActive ? 'active' : ''; ?>" 
+                                         data-method="OOE" 
+                                         data-verified="1">
+                                        <div class="toggle-switch-handle"></div>
+                                    </div>
+                                    <span class="toggle-label">
+                                        <?php echo $emailIsActive ? __("Active") : __("Inactive"); ?>
+                                    </span>
+                                </div>
+                                <a href="#" class="edit-btn"><?php echo __("Edit") ?></a>
+
+                                <!-- Hidden form for toggle submission (Email always available) -->
+                                <form method="post" 
+                                      action="<?php echo $formPostUrl; ?>" 
+                                      id="toggle-email-form" 
+                                      style="display: none;">
+                                    <?php echo $formKey; ?>
+                                    <input type="hidden" name="action" value="toggle_authenticator">
+                                    <input type="hidden" name="authenticator_method" value="OOE">
+                                    <input type="hidden" name="customerEmail" value="<?php echo htmlspecialchars($customerEmail); ?>">
+                                    <input type="hidden" name="all_active_methods" value="<?php echo htmlspecialchars(!empty($allActiveMethods) ? json_encode($allActiveMethods) : '[]'); ?>">
+                                    <input type="hidden" name="is_active" id="email-toggle-state" value="<?php echo $emailIsActive ? '1' : '0'; ?>">
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="steps">
+                            <div class="step-content">
+                                <div class="form-group">
+                                    <label class="form-label"><?php echo __("Email"); ?></label>
+                                    <div style="display: flex; gap: 12px; align-items: center;">
+                                        <input type="email" 
+                                               class="form-input" 
+                                               value="<?php echo htmlspecialchars($customerEmail); ?>">
+                                        <button type="button" class="btn btn-secondary">
+                                            <?php echo __("Cancel"); ?>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            <?php endif; ?>
+        </main>
+    </div>
+</div>
+</div>
+
+<!-- ============================================================================
+     Error Message Container
+     ============================================================================ -->
+<div id="mfa-error-message" class="mfa-error-alert" style="display: none;">
+    <div class="error-icon">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+    </div>
+    <span class="error-text"><?php echo __("MFA method not configured."); ?></span>
+</div>
+
+<!-- ============================================================================
+     External Libraries
+     ============================================================================ -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- ============================================================================
+     JavaScript Functions
+     ============================================================================ -->
+<script>
+    /**
+     * Show selected section and hide others
+     *
+     * @param {string} section - Section name to show
+     */
+    function showSection(section) {
+        // Hide all sections (only if they exist)
+        const authenticatorSection = document.getElementById('authenticator-section');
+        const smsSection = document.getElementById('sms-section');
+        const emailSection = document.getElementById('email-section');
+        
+        if (authenticatorSection) {
+            authenticatorSection.classList.add('hidden');
+        }
+        if (smsSection) {
+            smsSection.classList.add('hidden');
+        }
+        if (emailSection) {
+            emailSection.classList.add('hidden');
+        }
+
+        
+
+        // Remove active class from all sidebar items
+        const sidebarItems = document.querySelectorAll('.sidebar-item');
+        sidebarItems.forEach(item => item.classList.remove('active'));
+
+        // Show selected section and activate corresponding sidebar item
+        if (section === 'authenticator') {
+            if (authenticatorSection) {
+                authenticatorSection.classList.remove('hidden');
+            }
+            // Find the authenticator sidebar item by checking onclick attribute
+            sidebarItems.forEach(item => {
+                if (item.getAttribute('onclick') === "showSection('authenticator')") {
+                    item.classList.add('active');
+                }
+            });
+        } else if (section === 'sms') {
+            if (smsSection) {
+                smsSection.classList.remove('hidden');
+            }
+            // Find the SMS sidebar item by checking onclick attribute
+            sidebarItems.forEach(item => {
+                if (item.getAttribute('onclick') === "showSection('sms')") {
+                    item.classList.add('active');
+                }
+            });
+        } else if (section === 'email') {
+            if (emailSection) {
+                emailSection.classList.remove('hidden');
+            }
+            // Find the Email sidebar item by checking onclick attribute
+            sidebarItems.forEach(item => {
+                if (item.getAttribute('onclick') === "showSection('email')") {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+        // Collapse all cards when switching sections
+        collapseAllCards();
+    }
+
+    /**
+     * Collapse all cards
+     */
+    function collapseAllCards() {
+        const allSteps = document.querySelectorAll('.steps');
+        const allEditButtons = document.querySelectorAll('.edit-btn');
+
+        allSteps.forEach(steps => {
+            steps.classList.add('collapsed');
+        });
+
+        allEditButtons.forEach(button => {
+            button.textContent = '<?php echo __("Edit"); ?>';
+        });
+    }
+
+    /**
+     * Copy secret to clipboard
+     *
+     * @param {string} secretId - ID of the secret element
+     */
+    function copySecret(secretId) {
+        const secretElement = document.getElementById(secretId);
+        if (!secretElement) {
+            return;
+        }
+
+        // Get all text nodes and extract the secret (first text node)
+        let secretText = '';
+        const textNodes = Array.from(secretElement.childNodes).filter(node => node.nodeType === 3);
+        if (textNodes.length > 0) {
+            secretText = textNodes[0].textContent.trim();
+        } else {
+            // Fallback: get all text and remove the copy icon text
+            secretText = secretElement.textContent.trim().replace('Copied!', '').trim();
+        }
+
+        // Remove spaces when copying
+        const secretWithoutSpaces = secretText.replace(/\s/g, '');
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(secretWithoutSpaces)
+            .then(() => {
+                // Show "Copied!" message
+                const messageId = secretId.replace('SecretCode', 'CopiedMessage');
+                const copiedMessage = document.getElementById(messageId);
+                if (copiedMessage) {
+                    copiedMessage.style.display = 'inline';
+                    setTimeout(() => {
+                        copiedMessage.style.display = 'none';
+                    }, 2000);
+                }
+            })
+            .catch(err => {
+                console.error('Failed to copy secret: ', err);
+            });
+    }
+
+    /**
+     * Collapse steps section
+     *
+     * @param {HTMLElement} button - Button element that triggered the collapse
+     */
+    function collapseSteps(button) {
+        const card = button.closest('.auth-card');
+        if (!card) {
+            return;
+        }
+
+        const steps = card.querySelector('.steps');
+        const editBtn = card.querySelector('.edit-btn');
+
+        if (steps) {
+            steps.classList.add('collapsed');
+        }
+
+        if (editBtn) {
+            editBtn.textContent = '<?php echo __("Edit"); ?>';
+        }
+    }
+
+    // ============================================================================
+    // DOMContentLoaded Event Handler
+    // ============================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize all steps as collapsed (hidden by default)
+        const allSteps = document.querySelectorAll('.steps');
+        allSteps.forEach(steps => {
+            steps.classList.add('collapsed');
+        });
+
+        // ========================================================================
+        // Edit Button Handlers
+        // ========================================================================
+        const editButtons = document.querySelectorAll('.edit-btn');
+        editButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                const card = this.closest('.auth-card');
+                if (!card) {
+                    return;
+                }
+
+                const steps = card.querySelector('.steps');
+                if (!steps) {
+                    return;
+                }
+
+                // Check if currently visible/expanded
+                const isExpanded = window.getComputedStyle(steps).display !== 'none';
+
+                // Collapse all other cards first
+                collapseAllCards();
+
+                // Toggle the clicked card
+                if (isExpanded) {
+                    steps.classList.add('collapsed');
+                    this.textContent = '<?php echo __("Edit"); ?>';
+                } else {
+                    steps.classList.remove('collapsed');
+                    generateQRCodes();
+                }
+            });
+        });
+
+        // ========================================================================
+        // Toggle Switch Handlers
+        // ========================================================================
+        const toggleSwitches = document.querySelectorAll('.toggle-switch[data-method]');
+        toggleSwitches.forEach(toggle => {
+            toggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const method = this.getAttribute('data-method');
+                const isVerified = this.getAttribute('data-verified') === '1';
+                const isActive = this.classList.contains('active');
+                const toggleLabel = this.parentElement.querySelector('.toggle-label');
+
+                // If verified, allow normal toggle and submit form
+                if (isVerified) {
+                    const newIsActive = !isActive;
+
+                    // Update UI immediately (optimistic update)
+                    if (newIsActive) {
+                        this.classList.add('active');
+                        if (toggleLabel) {
+                            toggleLabel.textContent = 'Active';
+                        }
+                    } else {
+                        this.classList.remove('active');
+                        if (toggleLabel) {
+                            toggleLabel.textContent = 'Inactive';
+                        }
+                    }
+
+                    // Find and submit the corresponding form
+                    const formId = method === 'GoogleAuthenticator' ? 'toggle-google-form' :
+                                  method === 'MicrosoftAuthenticator' ? 'toggle-microsoft-form' :
+                                  method === 'OOE' ? 'toggle-email-form' : null;
+                    const toggleForm = document.getElementById(formId);
+                    const stateInputId = method === 'GoogleAuthenticator' ? 'google-toggle-state' :
+                                       method === 'MicrosoftAuthenticator' ? 'microsoft-toggle-state' :
+                                       method === 'OOE' ? 'email-toggle-state' : null;
+                    const stateInput = document.getElementById(stateInputId);
+
+                    if (toggleForm && stateInput) {
+                        stateInput.value = newIsActive ? '1' : '0';
+                        toggleForm.submit();
+                    }
+
+                    return;
+                }
+
+                // If NOT verified, show error AND expand setup
+                if (!isVerified) {
+                    const card = this.closest('.auth-card');
+                    if (!card) {
+                        return;
+                    }
+
+                    const steps = card.querySelector('.steps');
+                    const editBtn = card.querySelector('.edit-btn');
+
+                    // Show error message
+                    showMfaError();
+
+                    // Expand the steps section
+                    if (steps && editBtn) {
+                        collapseAllCards();
+                        steps.classList.remove('collapsed');
+                        if (editBtn) {
+                            editBtn.textContent = '<?php echo __("Edit"); ?>';
+                        }
+                        generateQRCodes();
+
+                        // Smooth scroll to the expanded card
+                        setTimeout(function() {
+                            card.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'nearest'
+                            });
+                        }, 100);
+                    }
+                }
+            });
+        });
+
+        // ========================================================================
+        // QR Code Generation
+        // ========================================================================
+        function generateQRCodes() {
+            // Check if QRCode library is loaded
+            if (typeof QRCode === 'undefined') {
+                console.error('QRCode library not loaded');
+                return;
+            }
+
+            // Wait a bit for DOM to update
+            setTimeout(function() {
+                // Google Authenticator QR Code
+                const googleQRContainer = document.getElementById('qrcode-google');
+                const googleDataElement = document.getElementById('displayGAQrCodeGoogle');
+
+                if (googleQRContainer && googleDataElement) {
+                    const googleAuthUrl = googleDataElement.getAttribute('data-qrcode');
+                    if (googleAuthUrl && googleQRContainer.innerHTML === '') {
+                        try {
+                            googleQRContainer.innerHTML = '';
+                            new QRCode(googleQRContainer, {
+                                text: googleAuthUrl,
+                                width: 192,
+                                height: 192,
+                                colorDark: '#000000',
+                                colorLight: '#ffffff',
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        } catch (error) {
+                            console.error('Error generating Google QR code:', error);
+                        }
+                    }
+                }
+
+                // Microsoft Authenticator QR Code
+                const microsoftQRContainer = document.getElementById('qrcode-microsoft');
+                const microsoftDataElement = document.getElementById('displayGAQrCodeMicrosoft');
+
+                if (microsoftQRContainer && microsoftDataElement) {
+                    const microsoftAuthUrl = microsoftDataElement.getAttribute('data-qrcode');
+                    if (microsoftAuthUrl && microsoftQRContainer.innerHTML === '') {
+                        try {
+                            microsoftQRContainer.innerHTML = '';
+                            new QRCode(microsoftQRContainer, {
+                                text: microsoftAuthUrl,
+                                width: 192,
+                                height: 192,
+                                colorDark: '#000000',
+                                colorLight: '#ffffff',
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        } catch (error) {
+                            console.error('Error generating Microsoft QR code:', error);
+                        }
+                    }
+                }
+            }, 100);
+        }
+
+        // ========================================================================
+        // Cancel Button Handlers
+        // ========================================================================
+        const cancelButtons = document.querySelectorAll('.btn-secondary');
+        cancelButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                const card = this.closest('.auth-card');
+                if (!card) {
+                    return;
+                }
+
+                const steps = card.querySelector('.steps');
+                const editBtn = card.querySelector('.edit-btn');
+
+                if (steps) {
+                    steps.classList.add('collapsed');
+                }
+
+                if (editBtn) {
+                    editBtn.textContent = '<?php echo __("Edit"); ?>';
+                }
+            });
+        });
+
+        // ========================================================================
+        // Error Message Display
+        // ========================================================================
+        function showMfaError() {
+            const errorMessage = document.getElementById('mfa-error-message');
+            if (errorMessage) {
+                errorMessage.style.display = 'flex';
+
+                // Auto hide after 4 seconds
+                setTimeout(function() {
+                    if (errorMessage) {
+                        errorMessage.style.display = 'none';
+                    }
+                }, 4000);
+            }
+        }
+
+        // ========================================================================
+        // Phone Number Update with OTP Functionality
+        // ========================================================================
+        const updatePhoneBtn = document.getElementById('update-phone-btn');
+        const phoneInput = document.getElementById('phone-input');
+        const countryCodeSelect = document.getElementById('countrycode-dropdown');
+        const otpValidationSection = document.getElementById('otp-validation-section');
+        const otpInputContainer = document.getElementById('otp-input-container');
+        const verifyOtpBtn = document.getElementById('verify-otp-btn');
+        const cancelOtpBtn = document.getElementById('cancel-otp-btn');
+        const otpMessage = document.getElementById('otp-message');
+        const validateOtpForm = document.getElementById('validate-otp-form');
+        const otpPasscodeInput = document.getElementById('otp-passcode');
+        const updatePhoneNumberInput = document.getElementById('update-phone-number');
+        const updateCountryCodeInput = document.getElementById('update-country-code');
+        const phoneErrorMessage = document.getElementById('phone-error-message');
+        const otpLength = 6; // Fixed OTP length for SMS
+        let currentPhoneNumber = '';
+        let currentCountryCode = '';
+
+        // Get current phone number from PHP
+        const currentPhone = '<?php echo htmlspecialchars('+'.$userdetails[0]['countrycode'].$userdetails[0]['phone'], ENT_QUOTES, 'UTF-8'); ?>';
+        const currentCountryCodeFromPHP = '<?php echo htmlspecialchars($userdetails[0]['countrycode'] ?? '', ENT_QUOTES, 'UTF-8'); ?>';
+        const currentPhoneNumberFromPHP = '<?php echo htmlspecialchars($userdetails[0]['phone'] ?? '', ENT_QUOTES, 'UTF-8'); ?>';
+
+        /**
+         * Generate OTP input fields (fixed at 6)
+         */
+        function generateOtpInputs() {
+            otpInputContainer.innerHTML = '';
+            for (let i = 0; i < otpLength; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.maxLength = 1;
+                input.inputMode = 'numeric';
+                input.className = 'form-input';
+                input.style.width = '40px';
+                input.style.textAlign = 'center';
+                input.style.fontSize = '18px';
+                input.style.padding = '8px';
+                input.setAttribute('aria-label', 'Verification Code Digit ' + (i + 1));
+
+                // Auto-focus next input on input
+                input.addEventListener('input', function(e) {
+                    // Only allow single digit
+                    if (e.target.value.length > 1) {
+                        e.target.value = e.target.value.slice(-1);
+                    }
+                    // Only allow numeric input
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    if (e.target.value.length === 1 && i < otpLength - 1) {
+                        const nextInput = otpInputContainer.children[i + 1];
+                        if (nextInput) {
+                            nextInput.focus();
+                        }
+                    }
+                });
+
+                // Handle backspace
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && e.target.value === '' && i > 0) {
+                        const prevInput = otpInputContainer.children[i - 1];
+                        if (prevInput) {
+                            prevInput.focus();
+                        }
+                    }
+                });
+
+                otpInputContainer.appendChild(input);
+            }
+        }
+
+        // Handle Update Phone Number button click
+        if (updatePhoneBtn) {
+            updatePhoneBtn.addEventListener('click', function() {
+                const phoneValue = phoneInput.value.trim();
+                const countryCode = countryCodeSelect ? countryCodeSelect.value : '';
+
+                // Clear previous messages
+                phoneErrorMessage.style.display = 'none';
+                phoneErrorMessage.textContent = '';
+                otpMessage.textContent = '';
+                otpMessage.style.display = 'none';
+
+                if (!phoneValue) {
+                    phoneErrorMessage.textContent = '<?php echo __("Please enter a phone number"); ?>';
+                    phoneErrorMessage.style.display = 'block';
+                    return;
+                }
+
+                if (!countryCode) {
+                    phoneErrorMessage.textContent = '<?php echo __("Please select a country code"); ?>';
+                    phoneErrorMessage.style.display = 'block';
+                    return;
+                }
+
+                // Check if the same phone number is being used
+                if (currentCountryCodeFromPHP === countryCode && currentPhoneNumberFromPHP === phoneValue) {
+                    phoneErrorMessage.textContent = '<?php echo __("This is the same phone number. Please enter a different phone number."); ?>';
+                    phoneErrorMessage.style.display = 'block';
+                    return;
+                }
+
+                currentPhoneNumber = phoneValue;
+                currentCountryCode = countryCode;
+
+                // Disable button and show loading state
+                updatePhoneBtn.disabled = true;
+                updatePhoneBtn.textContent = '<?php echo __("Sending OTP"); ?>...';
+
+                // Call send OTP API
+                const baseUrl = '<?php echo $this->getBaseUrl(); ?>';
+                const apiUrl = baseUrl + 'rest/V1/mo2fa/headless/sendOtpApi';
+                const customerEmail = '<?php echo htmlspecialchars($customerEmail, ENT_QUOTES, 'UTF-8'); ?>';
+                const fullPhone = '+' + countryCode + phoneValue;
+
+                const requestData = {
+                    username: customerEmail,
+                    authType: 'OOS',
+                    phone: fullPhone
+                };
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json();
+                    } else {
+                        throw new Error('Invalid response format: Expected JSON');
+                    }
+                })
+                .then(data => {
+                    if (Array.isArray(data) && data.length > 0) {
+                        const responseData = data[0];
+                        console.log(responseData);
+
+                        if (responseData.status === "SUCCESS") {
+                            // Generate OTP input fields
+                            generateOtpInputs();
+
+                            // Show OTP validation section
+                            otpValidationSection.style.display = 'block';
+
+                            // Focus first OTP input
+                            if (otpInputContainer.children.length > 0) {
+                                otpInputContainer.children[0].focus();
+                            }
+
+                            // Show success message from response
+                            otpMessage.textContent = responseData.message || '<?php echo __("OTP has been sent. Please enter the OTP you received to validate."); ?>';
+                            otpMessage.style.color = '#155724';
+                            otpMessage.style.display = 'block';
+
+                            // Store phone number and country code
+                            const phoneFromResponse = responseData.phone || phoneValue;
+                            const countryCodeFromResponse = responseData.countrycode || countryCode;
+                            updatePhoneNumberInput.value = phoneFromResponse;
+                            updateCountryCodeInput.value = countryCodeFromResponse;
+
+                            // Reset button
+                            updatePhoneBtn.disabled = false;
+                            updatePhoneBtn.textContent = '<?php echo __("Update Phone Number"); ?>';
+                        } else if (responseData.status === "ERROR") {
+                            phoneErrorMessage.textContent = responseData.message || '<?php echo __("Failed to send OTP. Please try again."); ?>';
+                            phoneErrorMessage.style.display = 'block';
+                            updatePhoneBtn.disabled = false;
+                            updatePhoneBtn.textContent = '<?php echo __("Update Phone Number"); ?>';
+                        } else {
+                            phoneErrorMessage.textContent = responseData.message || '<?php echo __("Failed to send OTP. Please try again."); ?>';
+                            phoneErrorMessage.style.display = 'block';
+                            updatePhoneBtn.disabled = false;
+                            updatePhoneBtn.textContent = '<?php echo __("Update Phone Number"); ?>';
+                        }
+                    } else {
+                        throw new Error('Invalid response format from the server.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    phoneErrorMessage.textContent = '<?php echo __("An error occurred: "); ?>' + error.message;
+                    phoneErrorMessage.style.display = 'block';
+                    updatePhoneBtn.disabled = false;
+                    updatePhoneBtn.textContent = '<?php echo __("Update Phone Number"); ?>';
+                });
+            });
+        }
+
+        // Handle Verify OTP button click
+        if (verifyOtpBtn) {
+            verifyOtpBtn.addEventListener('click', function() {
+                // Collect OTP from all input fields
+                const otpInputs = otpInputContainer.querySelectorAll('input');
+                let otpValue = '';
+
+                otpInputs.forEach(input => {
+                    otpValue += input.value;
+                });
+
+                if (otpValue.length !== otpLength) {
+                    otpMessage.textContent = '<?php echo __("Please enter all digits of the OTP."); ?>';
+                    otpMessage.style.color = '#d9533d';
+                    otpMessage.style.display = 'block';
+                    return;
+                }
+
+                // Ensure phone and countryCode are set
+                if (!updatePhoneNumberInput.value || !updateCountryCodeInput.value) {
+                    otpMessage.textContent = '<?php echo __("Phone number information is missing. Please try updating your phone number again."); ?>';
+                    otpMessage.style.color = '#d9533d';
+                    otpMessage.style.display = 'block';
+                    return;
+                }
+
+                // Disable button and show loading state
+                verifyOtpBtn.disabled = true;
+                verifyOtpBtn.textContent = '<?php echo __("Verifying"); ?>...';
+
+                // Clear previous messages
+                otpMessage.textContent = '';
+                otpMessage.style.display = 'none';
+
+                // Prepare API call
+                const baseUrl = '<?php echo $this->getBaseUrl(); ?>';
+                const apiUrl = baseUrl + 'rest/V1/mo2fa/headless/validateSMSOtpApi';
+                const customerEmail = '<?php echo htmlspecialchars($customerEmail, ENT_QUOTES, 'UTF-8'); ?>';
+
+                const requestData = {
+                    email: customerEmail,
+                    action_method: 'OOS',
+                    savestep: 'OOS',
+                    phone: updatePhoneNumberInput.value,
+                    countrycode: updateCountryCodeInput.value,
+                    Passcode: otpValue
+                };
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json();
+                    } else {
+                        throw new Error('Invalid response format: Expected JSON');
+                    }
+                })
+                .then(data => {
+                    // Reset button state
+                    verifyOtpBtn.disabled = false;
+                    verifyOtpBtn.textContent = '<?php echo __("Verify OTP"); ?>';
+
+                    if (Array.isArray(data) && data.length > 0) {
+                        const responseData = data[0];
+                        console.log(responseData);
+
+                        // Check response message/status
+                        const responseMessage = responseData.message || responseData.status || '';
+                        const isSuccess = responseMessage.toLowerCase().includes('verified') ||
+                                         responseData.status === 'SUCCESS' ||
+                                         responseMessage.toLowerCase().includes('otp verified');
+                        const isError = responseMessage.toLowerCase().includes('incorrect') ||
+                                       responseMessage.toLowerCase().includes('invalid') ||
+                                       responseData.status === 'ERROR' ||
+                                       responseMessage.toLowerCase().includes('otp incorrect');
+
+                        if (isSuccess) {
+                            // Show success message
+                            otpMessage.textContent = responseData.message || '<?php echo __("OTP verified successfully!"); ?>';
+                            otpMessage.style.color = '#155724';
+                            otpMessage.style.display = 'block';
+
+                            // Reload page after 2 seconds to show updated phone number
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 2000);
+                        } else if (isError) {
+                            // Show error message
+                            otpMessage.textContent = responseData.message || '<?php echo __("OTP incorrect. Please try again."); ?>';
+                            otpMessage.style.color = '#d9533d';
+                            otpMessage.style.display = 'block';
+
+                            // Clear OTP inputs for retry
+                            otpInputs.forEach(input => {
+                                input.value = '';
+                            });
+                            if (otpInputs.length > 0) {
+                                otpInputs[0].focus();
+                            }
+                        } else {
+                            // Handle other response formats
+                            otpMessage.textContent = responseData.message || '<?php echo __("An unexpected error occurred. Please try again."); ?>';
+                            otpMessage.style.color = '#d9533d';
+                            otpMessage.style.display = 'block';
+                        }
+                    } else {
+                        throw new Error('Invalid response format from the server.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+
+                    // Reset button state
+                    verifyOtpBtn.disabled = false;
+                    verifyOtpBtn.textContent = '<?php echo __("Verify OTP"); ?>';
+
+                    // Show error message
+                    otpMessage.textContent = '<?php echo __("An error occurred: "); ?>' + error.message;
+                    otpMessage.style.color = '#d9533d';
+                    otpMessage.style.display = 'block';
+                });
+            });
+        }
+
+        // Handle Cancel button click
+        if (cancelOtpBtn) {
+            cancelOtpBtn.addEventListener('click', function() {
+                // Hide OTP validation section
+                otpValidationSection.style.display = 'none';
+
+                // Clear OTP inputs
+                otpInputContainer.innerHTML = '';
+
+                // Clear message
+                otpMessage.textContent = '';
+                otpMessage.style.display = 'none';
+
+                // Reset button states
+                if (verifyOtpBtn) {
+                    verifyOtpBtn.disabled = false;
+                    verifyOtpBtn.textContent = '<?php echo __("Verify OTP"); ?>';
+                }
+            });
+        }
+
+        // ========================================================================
+        // Phone Verification with Cookie Session (5 minutes)
+        // ========================================================================
+        <?php if ($phoneVerificationNeeded): ?>
+        const phoneVerificationWrapper = document.getElementById('phone-verification-wrapper');
+        const main2faContent = document.getElementById('main-2fa-content');
+        const phoneVerificationOtpContainer = document.getElementById('phone-verification-otp-container');
+        const phoneVerificationVerifyBtn = document.getElementById('phone-verification-verify-btn');
+        const phoneVerificationResendBtn = document.getElementById('phone-verification-resend-btn');
+        const phoneVerificationMessage = document.getElementById('phone-verification-message');
+        
+        const phoneVerificationCookieName = 'mo2fa_phone_verified';
+        const phoneVerificationCookieExpiry = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const customerPhone = '<?php echo htmlspecialchars($phone, ENT_QUOTES, 'UTF-8'); ?>';
+        const customerCountryCode = '<?php echo htmlspecialchars($countryCode, ENT_QUOTES, 'UTF-8'); ?>';
+        const customerEmailForVerification = '<?php echo htmlspecialchars($customerEmail, ENT_QUOTES, 'UTF-8'); ?>';
+        const otpLengthForVerification = 6;
+        
+        // Encryption key (should be consistent for same domain)
+        const encryptionKey = 'mo2fa_verification_key_2024';
+
+        /**
+         * Simple encryption function using XOR cipher with base64 encoding
+         * @param {string} text - Text to encrypt
+         * @param {string} key - Encryption key
+         * @returns {string} Encrypted text
+         */
+        function encryptEmail(text, key) {
+            if (!text || !key) return '';
+            
+            let result = '';
+            for (let i = 0; i < text.length; i++) {
+                const charCode = text.charCodeAt(i);
+                const keyChar = key.charCodeAt(i % key.length);
+                result += String.fromCharCode(charCode ^ keyChar);
+            }
+            
+            // Encode to base64 for safe cookie storage
+            try {
+                return btoa(result);
+            } catch (e) {
+                console.error('Encryption error:', e);
+                return '';
+            }
+        }
+
+        /**
+         * Simple decryption function using XOR cipher with base64 decoding
+         * @param {string} encryptedText - Encrypted text to decrypt
+         * @param {string} key - Decryption key
+         * @returns {string} Decrypted text
+         */
+        function decryptEmail(encryptedText, key) {
+            if (!encryptedText || !key) return '';
+            
+            try {
+                // Decode from base64
+                const decoded = atob(encryptedText);
+                
+                let result = '';
+                for (let i = 0; i < decoded.length; i++) {
+                    const charCode = decoded.charCodeAt(i);
+                    const keyChar = key.charCodeAt(i % key.length);
+                    result += String.fromCharCode(charCode ^ keyChar);
+                }
+                
+                return result;
+            } catch (e) {
+                console.error('Decryption error:', e);
+                return '';
+            }
+        }
+
+        /**
+         * Set cookie with expiration
+         */
+        function setCookie(name, value, minutes) {
+            const date = new Date();
+            date.setTime(date.getTime() + (minutes * 60 * 1000));
+            const expires = "expires=" + date.toUTCString();
+            document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/";
+        }
+
+        /**
+         * Get cookie value
+         */
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) {
+                    const value = c.substring(nameEQ.length, c.length);
+                    return decodeURIComponent(value);
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Check if phone verification cookie is valid (based on email)
+         */
+        function isPhoneVerified() {
+            const cookieValue = getCookie(phoneVerificationCookieName);
+            if (!cookieValue) {
+                return false;
+            }
+            
+            try {
+                // Decrypt the cookie value
+                const decryptedValue = decryptEmail(cookieValue, encryptionKey);
+                if (!decryptedValue) {
+                    return false;
+                }
+                
+                const data = JSON.parse(decryptedValue);
+                const now = new Date().getTime();
+                
+                // Check if cookie is for this email and not expired
+                if (data.email === customerEmailForVerification &&
+                    data.timestamp && 
+                    (now - data.timestamp) < phoneVerificationCookieExpiry) {
+                    return true;
+                }
+            } catch (e) {
+                console.error('Error parsing phone verification cookie:', e);
+            }
+            
+            return false;
+        }
+
+        /**
+         * Set phone verification cookie (stores encrypted email)
+         */
+        function setPhoneVerifiedCookie() {
+            const data = {
+                email: customerEmailForVerification,
+                timestamp: new Date().getTime()
+            };
+            
+            // Encrypt the data before storing in cookie
+            const encryptedData = encryptEmail(JSON.stringify(data), encryptionKey);
+            if (encryptedData) {
+                setCookie(phoneVerificationCookieName, encryptedData, 5); // 5 minutes
+            }
+        }
+
+        /**
+         * Generate OTP input fields for phone verification
+         */
+        function generatePhoneVerificationOtpInputs() {
+            if (!phoneVerificationOtpContainer) return;
+            
+            phoneVerificationOtpContainer.innerHTML = '';
+            for (let i = 0; i < otpLengthForVerification; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.maxLength = 1;
+                input.inputMode = 'numeric';
+                input.className = 'form-input';
+                input.style.width = '50px';
+                input.style.height = '50px';
+                input.style.textAlign = 'center';
+                input.style.fontSize = '20px';
+                input.style.padding = '8px';
+                input.setAttribute('aria-label', 'OTP Digit ' + (i + 1));
+
+                input.addEventListener('input', function(e) {
+                    if (e.target.value.length > 1) {
+                        e.target.value = e.target.value.slice(-1);
+                    }
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    if (e.target.value.length === 1 && i < otpLengthForVerification - 1) {
+                        const nextInput = phoneVerificationOtpContainer.children[i + 1];
+                        if (nextInput) {
+                            nextInput.focus();
+                        }
+                    }
+                });
+
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && e.target.value === '' && i > 0) {
+                        const prevInput = phoneVerificationOtpContainer.children[i - 1];
+                        if (prevInput) {
+                            prevInput.focus();
+                        }
+                    }
+                });
+
+                phoneVerificationOtpContainer.appendChild(input);
+            }
+        }
+
+        /**
+         * Send OTP to configured phone
+         */
+        function sendPhoneVerificationOtp() {
+            if (!customerPhone || !customerCountryCode || !customerEmailForVerification) {
+                if (phoneVerificationMessage) {
+                    phoneVerificationMessage.textContent = '<?php echo __("Phone number information is missing."); ?>';
+                    phoneVerificationMessage.style.color = '#d9533d';
+                    phoneVerificationMessage.style.display = 'block';
+                }
+                return Promise.reject('Missing phone information');
+            }
+
+            const baseUrl = '<?php echo $this->getBaseUrl(); ?>';
+            const apiUrl = baseUrl + 'rest/V1/mo2fa/headless/sendOtpApi';
+            const fullPhone = '+' + customerCountryCode + customerPhone;
+
+            const requestData = {
+                username: customerEmailForVerification,
+                authType: 'OOS',
+                phone: fullPhone
+            };
+
+            return fetch(apiUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    throw new Error('Invalid response format: Expected JSON');
+                }
+            })
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    const responseData = data[0];
+                    if (responseData.status === "SUCCESS") {
+                        if (phoneVerificationMessage) {
+                            phoneVerificationMessage.textContent = responseData.message || '<?php echo __("OTP has been sent to your phone."); ?>';
+                            phoneVerificationMessage.style.color = '#155724';
+                            phoneVerificationMessage.style.display = 'block';
+                        }
+                        return true;
+                    } else {
+                        // Display error message in UI
+                        const errorMessage = responseData.message || '<?php echo __("Failed to send OTP."); ?>';
+                        if (phoneVerificationMessage) {
+                            phoneVerificationMessage.textContent = errorMessage;
+                            phoneVerificationMessage.style.color = '#d9533d';
+                            phoneVerificationMessage.style.display = 'block';
+                        }
+                        throw new Error(errorMessage);
+                    }
+                } else {
+                    const errorMessage = 'Invalid response format from the server.';
+                    if (phoneVerificationMessage) {
+                        phoneVerificationMessage.textContent = errorMessage;
+                        phoneVerificationMessage.style.color = '#d9533d';
+                        phoneVerificationMessage.style.display = 'block';
+                    }
+                    throw new Error(errorMessage);
+                }
+            })
+            .catch(error => {
+                // Display error message in UI if not already displayed
+                if (phoneVerificationMessage && (!phoneVerificationMessage.textContent || phoneVerificationMessage.style.color !== '#d9533d')) {
+                    phoneVerificationMessage.textContent = error.message || '<?php echo __("An error occurred while sending OTP."); ?>';
+                    phoneVerificationMessage.style.color = '#d9533d';
+                    phoneVerificationMessage.style.display = 'block';
+                }
+                // Re-throw to maintain promise chain
+                throw error;
+            });
+        }
+
+        /**
+         * Verify OTP
+         */
+        function verifyPhoneVerificationOtp() {
+            if (!phoneVerificationOtpContainer) return;
+            
+            const otpInputs = phoneVerificationOtpContainer.querySelectorAll('input');
+            let otpValue = '';
+
+            otpInputs.forEach(input => {
+                otpValue += input.value;
+            });
+
+            if (otpValue.length !== otpLengthForVerification) {
+                if (phoneVerificationMessage) {
+                    phoneVerificationMessage.textContent = '<?php echo __("Please enter all digits of the OTP."); ?>';
+                    phoneVerificationMessage.style.color = '#d9533d';
+                    phoneVerificationMessage.style.display = 'block';
+                }
+                return;
+            }
+
+            if (phoneVerificationVerifyBtn) {
+                phoneVerificationVerifyBtn.disabled = true;
+                phoneVerificationVerifyBtn.textContent = '<?php echo __("Verifying"); ?>...';
+            }
+
+            const baseUrl = '<?php echo $this->getBaseUrl(); ?>';
+            const apiUrl = baseUrl + 'rest/V1/mo2fa/headless/validateSMSOtpApi';
+
+            const requestData = {
+                email: customerEmailForVerification,
+                action_method: 'OOS',
+                savestep: 'OOS',
+                phone: customerPhone,
+                countrycode: customerCountryCode,
+                Passcode: otpValue
+            };
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    throw new Error('Invalid response format: Expected JSON');
+                }
+            })
+            .then(data => {
+                if (phoneVerificationVerifyBtn) {
+                    phoneVerificationVerifyBtn.disabled = false;
+                    phoneVerificationVerifyBtn.textContent = '<?php echo __("Verify OTP"); ?>';
+                }
+
+                if (Array.isArray(data) && data.length > 0) {
+                    const responseData = data[0];
+                    const responseMessage = responseData.message || responseData.status || '';
+                    const isSuccess = responseMessage.toLowerCase().includes('verified') ||
+                                     responseData.status === 'SUCCESS' ||
+                                     responseMessage.toLowerCase().includes('otp verified');
+
+                    if (isSuccess) {
+                        // Set verification cookie
+                        setPhoneVerifiedCookie();
+                        
+                        // Hide verification UI and show main content
+                        if (phoneVerificationWrapper) {
+                            phoneVerificationWrapper.style.display = 'none';
+                        }
+                        if (main2faContent) {
+                            main2faContent.style.display = 'block';
+                        }
+                    } else {
+                        if (phoneVerificationMessage) {
+                            phoneVerificationMessage.textContent = responseData.message || '<?php echo __("OTP incorrect. Please try again."); ?>';
+                            phoneVerificationMessage.style.color = '#d9533d';
+                            phoneVerificationMessage.style.display = 'block';
+                        }
+
+                        // Clear OTP inputs
+                        otpInputs.forEach(input => {
+                            input.value = '';
+                        });
+                        if (otpInputs.length > 0) {
+                            otpInputs[0].focus();
+                        }
+                    }
+                } else {
+                    throw new Error('Invalid response format from the server.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                if (phoneVerificationVerifyBtn) {
+                    phoneVerificationVerifyBtn.disabled = false;
+                    phoneVerificationVerifyBtn.textContent = '<?php echo __("Verify OTP"); ?>';
+                }
+                if (phoneVerificationMessage) {
+                    phoneVerificationMessage.textContent = '<?php echo __("An error occurred: "); ?>' + error.message;
+                    phoneVerificationMessage.style.color = '#d9533d';
+                    phoneVerificationMessage.style.display = 'block';
+                }
+            });
+        }
+
+        // Check if phone is already verified on page load
+        if (isPhoneVerified()) {
+            // Phone is verified, show main content
+            if (phoneVerificationWrapper) {
+                phoneVerificationWrapper.style.display = 'none';
+            }
+            if (main2faContent) {
+                main2faContent.style.display = 'block';
+            }
+        } else {
+            // Phone not verified, show verification UI
+            if (phoneVerificationWrapper) {
+                phoneVerificationWrapper.style.display = 'block';
+            }
+            if (main2faContent) {
+                main2faContent.style.display = 'none';
+            }
+
+            // Generate OTP inputs
+            generatePhoneVerificationOtpInputs();
+
+            // Auto-send OTP on page load
+            sendPhoneVerificationOtp()
+                .then(() => {
+                    // Focus first OTP input
+                    const firstInput = phoneVerificationOtpContainer ? phoneVerificationOtpContainer.querySelector('input') : null;
+                    if (firstInput) {
+                        setTimeout(() => firstInput.focus(), 500);
+                    }
+                })
+                .catch(error => {
+                    // Error is already displayed in UI by sendPhoneVerificationOtp function
+                    console.error('Failed to send OTP:', error);
+                });
+
+            // Verify button handler
+            if (phoneVerificationVerifyBtn) {
+                phoneVerificationVerifyBtn.addEventListener('click', verifyPhoneVerificationOtp);
+            }
+
+            // Resend button handler
+            if (phoneVerificationResendBtn) {
+                phoneVerificationResendBtn.addEventListener('click', function() {
+                    if (phoneVerificationMessage) {
+                        phoneVerificationMessage.textContent = '';
+                        phoneVerificationMessage.style.display = 'none';
+                    }
+                    
+                    // Clear OTP inputs
+                    const otpInputs = phoneVerificationOtpContainer ? phoneVerificationOtpContainer.querySelectorAll('input') : [];
+                    otpInputs.forEach(input => {
+                        input.value = '';
+                    });
+                    
+                    sendPhoneVerificationOtp()
+                        .then(() => {
+                            if (otpInputs.length > 0) {
+                                otpInputs[0].focus();
+                            }
+                        })
+                        .catch(error => {
+                            // Error is already displayed in UI by sendPhoneVerificationOtp function
+                            console.error('Failed to resend OTP:', error);
+                        });
+                });
+            }
+        }
+        <?php endif; ?>
+    });
+</script>
+
+<!-- ============================================================================
+     CSS Styles
+     ============================================================================ -->
+<style>
+    /* ==========================================================================
+       Layout
+       ========================================================================== */
+    .container_2fa {
+        display: flex;
+        flex-direction: row-reverse;
+    }
+
+    /* ==========================================================================
+       Sidebar Styles
+       ========================================================================== */
+    .sidebar_2fa {
+        width: 70%;
+        margin-top: 2rem;
+        background-color: #f9f9f9;
+        border-right: 1px solid #e5e5e5;
+        padding: 24px;
+    }
+
+    .sidebar nav {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .sidebar-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #737373;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: none;
+        background: none;
+        width: 100%;
+        border-left: 4px solid transparent;
+        gap: 0.6rem;
+    }
+
+    .sidebar-item:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .sidebar-item.active {
+        color: #ea6449;
+        border-left-color: #ea6449;
+        background-color: rgb(251 237 237 / 49%);
+    }
+
+    .sidebar-item-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .sidebar-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .check-icon {
+        width: 16px;
+        height: 16px;
+        color: #737373;
+    }
+
+    /* ==========================================================================
+       Main Content
+       ========================================================================== */
+    .main-content {
+        flex: 1;
+        padding: 32px;
+    }
+
+    .breadcrumb {
+        font-size: 14px;
+        color: #737373;
+        margin-bottom: 4px;
+        margin-top: 1rem;
+    }
+
+    .breadcrumb span {
+        color: #262626;
+        font-weight: 500;
+    }
+
+    .page-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #262626;
+    }
+
+    .security-codes-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        color: #737373;
+        font-size: 14px;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .security-codes-btn:hover {
+        color: #262626;
+    }
+
+    /* ==========================================================================
+       Card Styles
+       ========================================================================== */
+    .auth-card {
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 32px;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+    }
+
+    .card-header-left {
+        display: flex;
+        gap: 16px;
+    }
+
+    .icon-box {
+        width: 41px;
+        height: 41px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .icon-box.google {
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .icon-box.primary {
+        background-color: #ea6449;
+    }
+
+    .card-title-section h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 2px 12px;
+        background-color: #262626;
+        color: white;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 4px;
+    }
+
+    .card-description {
+        font-size: 0.8rem;
+        color: #737373;
+        max-width: 700px;
+    }
+
+    .card-header-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    /* ==========================================================================
+       Toggle Switch
+       ========================================================================== */
+    .toggle-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .toggle-label {
+        font-size: 0.8rem;
+        color: #737373;
+    }
+
+    .toggle-switch {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        background-color: #e5e5e5;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .toggle-switch.active {
+        background-color: #22c55e;
+    }
+
+    .toggle-switch-handle {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        background: white;
+        border-radius: 50%;
+        transition: transform 0.3s;
+    }
+
+    .toggle-switch.active .toggle-switch-handle {
+        transform: translateX(20px);
+    }
+
+    .toggle-switch:not(.active)[data-verified="0"] {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* ==========================================================================
+       Buttons
+       ========================================================================== */
+    .edit-btn {
+        color: #3b82f6;
+        font-size: 14px;
+        font-weight: 500;
+        background: none;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .edit-btn:hover {
+        text-decoration: underline;
+    }
+
+    .btn {
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+
+    .btn-primary_2fa {
+        background-color: #ea6449;
+        color: white;
+    }
+
+    .btn-primary_2fa:hover {
+        background-color: #d9533d;
+    }
+
+    .btn-secondary {
+        background-color: white;
+        color: #262626;
+        border: 1px solid #e5e5e5;
+    }
+
+    .btn-secondary:hover {
+        background-color: #f5f5f5;
+    }
+
+    .link-button {
+        color: #3b82f6;
+        font-size: 14px;
+        font-weight: 500;
+        background: none;
+        border: none;
+        cursor: pointer;
+        margin-bottom: 16px;
+        display: inline-block;
+    }
+
+    .link-button:hover {
+        text-decoration: underline;
+    }
+
+    /* ==========================================================================
+       Steps Section
+       ========================================================================== */
+    .steps {
+        display: none;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .steps.collapsed {
+        display: none;
+    }
+
+    .steps:not(.collapsed) {
+        display: flex;
+    }
+
+    .step {
+        display: flex;
+        gap: 12px;
+    }
+
+    .step-number {
+        width: 32px;
+        height: 32px;
+        background-color: #262626;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .step-content {
+        flex: 1;
+        padding-top: 4px;
+    }
+
+    .step-text {
+        font-size: 14px;
+        color: #262626;
+        margin-bottom: 16px;
+    }
+
+    /* ==========================================================================
+       QR Code Section
+       ========================================================================== */
+    .qr-section {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        flex-wrap: wrap;
+    }
+
+    .qr-code-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .qr-code-container #qrcode-google,
+    .qr-code-container #qrcode-microsoft {
+        width: 192px;
+        height: 192px;
+        border: 2px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 16px;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .qr-code {
+        border: 2px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 16px;
+        background: white;
+        width: 192px;
+        height: 192px;
+    }
+
+    .qr-code svg {
+        width: 192px;
+        height: 192px;
+    }
+
+    .mo2f_gauth {
+        display: none;
+    }
+
+    .or-divider {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .or-text {
+        font-size: 14px;
+        color: #737373;
+        font-weight: 500;
+    }
+
+    .secret-box {
+        background-color: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 8px;
+        padding: 24px;
+        flex: 1;
+    }
+
+    .secret-label {
+        font-size: 14px;
+        color: #3b82f6;
+        font-weight: 500;
+        margin-bottom: 12px;
+    }
+
+    .secret-code {
+        font-size: 15px;
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        color: #3b82f6;
+        letter-spacing: 0.1em;
+    }
+
+    /* ==========================================================================
+       Form Elements
+       ========================================================================== */
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: #262626;
+        margin-bottom: 8px;
+    }
+
+    .form-input {
+        width: 100%;
+        max-width: 500px;
+        padding: 10px 12px;
+        border: 1px solid #e5e5e5;
+        border-radius: 6px;
+        font-size: 14px;
+        background-color: #f5f5f5;
+    }
+
+    .form-input::placeholder {
+        color: #a3a3a3;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    /* ==========================================================================
+       App Buttons
+       ========================================================================== */
+    .app-buttons {
+        display: flex;
+        gap: 12px;
+    }
+
+    .app-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background-color: #262626;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+
+    .app-btn:hover {
+        opacity: 0.9;
+    }
+
+    /* ==========================================================================
+       Badges & Labels
+       ========================================================================== */
+    .transaction-badge {
+        background-color: #262626;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        display: inline-block;
+    }
+
+    .active_method {
+        background: black;
+        color: white !important;
+        border-radius: 4px;
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+
+    /* ==========================================================================
+       Icons
+       ========================================================================== */
+    .google-icon circle:nth-child(1) {
+        fill: #4285F4;
+    }
+
+    .google-icon circle:nth-child(2) {
+        fill: #34A853;
+    }
+
+    .google-icon circle:nth-child(3) {
+        fill: #FBBC05;
+    }
+
+    .google-icon circle:nth-child(4) {
+        fill: #EA4335;
+    }
+
+    .microsoft-icon rect:nth-child(1) {
+        fill: #F25022;
+    }
+
+    .microsoft-icon rect:nth-child(2) {
+        fill: #7FBA00;
+    }
+
+    .microsoft-icon rect:nth-child(3) {
+        fill: #00A4EF;
+    }
+
+    .microsoft-icon rect:nth-child(4) {
+        fill: #FFB900;
+    }
+
+    /* ==========================================================================
+       Error Alert
+       ========================================================================== */
+    .mfa-error-alert {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #fee;
+        border: 1px solid #fcc;
+        border-left: 4px solid #f00;
+        border-radius: 4px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 9999;
+        animation: slideInRight 0.3s ease-out;
+    }
+
+    .mfa-error-alert .error-icon {
+        color: #dc2626;
+        flex-shrink: 0;
+    }
+
+    .mfa-error-alert .error-text {
+        color: #991b1b;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    /* ==========================================================================
+       Utilities
+       ========================================================================== */
+    .hidden {
+        display: none;
+    }
+</style>

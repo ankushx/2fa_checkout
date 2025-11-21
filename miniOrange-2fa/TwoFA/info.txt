@@ -1,0 +1,13 @@
+added customization
+
+->checkout 2fa
+->checkout minimum cart
+->back up 2fa method where sms is main method
+->custom pages for alternate/index.php for backup method
+->in Magento customer account pages -> 2FA configuration -> configure backup method
+->advance setting tab added configuration
+->added feature for block spam number
+->french translation
+->added phone number column in user management tab
+->rate limiting in phone number spam(remaining)
+->checkout countrycode phone inline removed

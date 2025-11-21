@@ -1,0 +1,35 @@
+{
+    "name": "miniorange_inc/miniorange-magento-2fa",
+    "description": "miniOrange 2FA premium",
+    "keywords": [
+        "2FA"
+    ],
+    "require": {
+        "php": "~7|~8"
+    },
+    "type": "magento2-module",
+    "version": "1.2.4.4",
+    "license": [
+        "Commercial",
+        "OSL-3.0",
+        "AFL-3.0"
+    ],
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "MiniOrange\\TwoFA\\": ""
+        }
+    },
+    "authors": [
+        {
+            "name": "miniOrange",
+            "homepage": "https://www.miniorange.com/",
+            "email": "info@xecurify.com"
+        }
+    ],
+    "support": {
+        "email": "magentosupport@xecurify.com"
+    }
+}
